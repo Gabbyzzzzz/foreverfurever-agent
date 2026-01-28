@@ -1,4 +1,5 @@
 # ForeverFurEver AI Shopping Agent
+Try it: https://foreverfurever-agent.onrender.com/
 
 An AI-powered conversational shopping assistant for a Shopify-based pet memorial store.
 
