@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pathlib import Path
@@ -12,8 +13,22 @@ from ff_agent.graph import build_graph
 # ------------------------
 
 load_dotenv()
-
 app = FastAPI()
+# ✅ NEW: CORS (必须放在路由定义前)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://foreverfurever.org",
+        "https://www.foreverfurever.org",
+        "http://127.0.0.1:8000",   # 可选：本地调试前端时用
+        "http://localhost:8000"    # 可选
+        "https://foreverfurever.myshopify.com",
+        "https://admin.shopify.com",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STATIC_DIR = PROJECT_ROOT / "static"
@@ -26,7 +41,7 @@ API_VERSION = "0.4.0"
 # ------------------------
 @app.get("/")
 def root():
-    return FileResponse("static/chat.html")
+    return FileResponse(STATIC_DIR / "chat.html")
 
 app.mount(
     "/static",
