@@ -1,3 +1,28 @@
+# ForeverFurEver AI Shopping Agent
+
+An AI-powered conversational shopping assistant for a Shopify-based pet memorial store.
+
+## Features
+
+- Budget-aware product recommendation
+- Real-time Shopify Storefront API integration
+- LangGraph agent flow (intent routing + clarification + actions)
+- Interactive web demo UI
+
+## Tech Stack
+
+- FastAPI
+- LangGraph
+- OpenAI GPT
+- Shopify Storefront API
+- Vanilla JS frontend
+
+## Demo
+
+Run locally in 1 minute:
+
+python -m ff_agent.api_server
+
 ## Quick Start
 
 ### 1. Clone
