@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>ForeverFurEver Agent</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background:#f6f6f6;
+  margin:0;
+  padding:0;
+}
+
+#chat-box {
+  width: 420px;
+  margin: 40px auto;
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.1);
+}
+
+#messages {
+  height: 420px;
+  overflow-y: auto;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 10px;
+}
+
+.msg { margin: 8px 0; }
+.user { text-align: right; color: #444; }
+.ai { text-align: left; color: #000; }
+
+#actions { margin-top: 10px; }
+
+.action-btn {
+  display: block;
+  width: 100%;
+  margin: 6px 0;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  background: #000;
+  color: white;
+  cursor: pointer;
+}
+
+.action-btn:hover { opacity: 0.85; }
+
+/* ✅ chips 样式（Gift vs Personal） */
+.chips {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 6px;
+  flex-wrap: wrap;
+}
+.chip-btn {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid #000;
+  background: #fff;
+  color: #000;
+  cursor: pointer;
+  font-weight: 600;
+}
+.chip-btn:hover { opacity: 0.9; }
+
+#input-area {
+  display: flex;
+  margin-top: 10px;
+}
+
+#input {
+  flex: 1;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+#send {
+  margin-left: 6px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: none;
+  background: black;
+  color: white;
+  cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div id="chat-box">
+  <div id="messages"></div>
+  <div id="actions"></div>
+
+  <div id="input-area">
+    <input id="input" placeholder="Type here..." />
+    <button id="send">Send</button>
+  </div>
+</div>
+
+<script>
+const API_URL = "http://127.0.0.1:8000/chat";
+
+const messages = document.getElementById("messages");
+const actionsDiv = document.getElementById("actions");
+const input = document.getElementById("input");
+const sendBtn = document.getElementById("send");
+
+// ✅ thread_id：先用固定值，之后再升级成 localStorage / uuid
+const THREAD_ID = "web_demo_1";
+
+function addMessage(text, cls){
+  const div = document.createElement("div");
+  div.className = "msg " + cls;
+  div.innerText = text;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function clearActions(){
+  actionsDiv.innerHTML = "";
+}
+
+/**
+ * ✅ sendMessage 支持 silent：
+ * - silent=true：不把 text 显示为 user 消息，但照样发给后端
+ */
+async function sendMessage(text, opts = {}){
+  const silent = !!opts.silent;
+  if(!text) return;
+
+  if (!silent) addMessage(text, "user");
+  input.value = "";
+  clearActions();
+
+  let resp;
+  try {
+    resp = await fetch(API_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ message: text, thread_id: THREAD_ID })
+    });
+  } catch (e) {
+    addMessage("Network error.", "ai");
+    return;
+  }
+
+  const data = await resp.json();
+
+  if(data.type === "error"){
+    addMessage("Server error.", "ai");
+    return;
+  }
+
+  // ✅ assistant message
+  addMessage(data.content || "(no content)", "ai");
+
+  if(data.actions && Array.isArray(data.actions)){
+    renderActions(data.actions);
+  }
+}
+
+/**
+ * ✅ 4.4：set_profile actions 以 “chips” 展示，不占聊天内容
+ * 其他 action 仍然用黑色大按钮
+ */
+function renderActions(actions){
+  clearActions();
+
+  const setProfileActions = actions.filter(a => a.type === "set_profile");
+  const normalActions = actions.filter(a => a.type !== "set_profile");
+
+  // --- chips (Gift vs Personal) ---
+  if (setProfileActions.length > 0) {
+    const chips = document.createElement("div");
+    chips.className = "chips";
+
+    setProfileActions.forEach(a => {
+      const btn = document.createElement("button");
+      btn.className = "chip-btn";
+      btn.innerText = a.label || "Choose";
+
+      btn.onclick = () => {
+        // ✅ 不显示为用户消息：silent
+        const patch = a.patch || {};
+        const occasion = patch.occasion || "";
+        const msg = `#choice:occasion=${occasion}`;
+        sendMessage(msg, { silent: true });
+      };
+
+      chips.appendChild(btn);
+    });
+
+    actionsDiv.appendChild(chips);
+  }
+
+  // --- normal buttons ---
+  normalActions.forEach(a=>{
+    const btn = document.createElement("button");
+    btn.className = "action-btn";
+    btn.innerText = a.label || "Action";
+
+    btn.onclick = ()=>{
+      // 1) reply：value 不为空就发；为空就 focus 输入框（避免“点了没反应”）
+      if (a.type === "reply") {
+        const v = a.value || "";
+        if (v) sendMessage(v);
+        else input.focus();
+        return;
+      }
+
+      // 2) open link
+      if (a.type === "open_product" || a.type === "open_collection") {
+        const url = a.url || a.value;
+        if (url) window.open(url, "_blank");
+        return;
+      }
+    };
+
+    actionsDiv.appendChild(btn);
+  });
+}
+
+// ---- UI events ----
+sendBtn.onclick = ()=> sendMessage(input.value);
+
+input.addEventListener("keydown", e=>{
+  if(e.key==="Enter"){
+    sendMessage(input.value);
+  }
+});
+
+// ✅ 可选：页面打开先给一个引导消息
+addMessage("Hi! Tell me your budget and whether it's a gift or for yourself.", "ai");
+</script>
+
+</body>
+</html>
