@@ -1,210 +1,130 @@
+"""Regression test suite for ForeverFurEver Agent v1.0.
+
+Tests the new Gemini-powered agent with tool calling.
+Run: python scripts/regression_suite.py
+"""
+
 import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import json
-from typing import Dict, Any, List
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from langchain_core.messages import HumanMessage, AIMessage
 from ff_agent.graph import build_graph
 
-
-# ====== 1) 和 api_server.py 保持一致的 system_prompt 生成方式 ======
-from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-KNOWLEDGE_PATH = PROJECT_ROOT / "docs" / "01_store_knowledge.md"
-
-def load_store_knowledge() -> str:
-    if KNOWLEDGE_PATH.exists():
-        return KNOWLEDGE_PATH.read_text(encoding="utf-8")
-    return ""
-
-def build_system_prompt(store_knowledge: str) -> str:
-    return (
-        "You are a compassionate assistant for an English-first pet memorial store (ForeverFurEver).\n"
-        "Default to English unless user writes in Chinese.\n"
-        "Personalization is TEXT-ONLY.\n\n"
-        f"{store_knowledge}"
-    )
-
-store_knowledge = load_store_knowledge()
-system_prompt = build_system_prompt(store_knowledge)
-
-graph = build_graph(system_prompt)
+graph = build_graph()
 
 
-# ====== 2) 一组固定测试问题（你后续可随时加） ======
-TEST_CASES: List[Dict[str, Any]] = [
+TEST_CASES = [
     {
-        "id": "budget_only",
-        "thread_id": "t_budget_only",
-        "message": "I want something under $60.",
+        "id": "product_budget",
+        "message": "I want a pet memorial under $60.",
         "checks": {
-            "must_have_fields": ["type", "intent", "content", "profile", "products_debug"],
-            "must_not_invent_when_products_present": True,
-        }
+            "has_content": True,
+            "content_mentions_any": ["$", "product", "memorial", "recommend", "Eternal", "Glow"],
+        },
     },
     {
-        "id": "urn_budget",
-        "thread_id": "t_urn_budget",
-        "message": "I need a pet urn for ashes under $60.",
+        "id": "policy_return",
+        "message": "What's your return policy?",
         "checks": {
-            "must_have_fields": ["type", "intent", "content", "products_debug","actions"],
-            "must_not_invent_when_products_present": True,
-            "must_have_urn_keepsake_actions": True
-        }
+            "has_content": True,
+            "content_mentions_any": ["return", "refund", "30 days", "day", "policy"],
+        },
     },
     {
-        "id": "gift_budget",
-        "thread_id": "t_gift_budget",
-        "message": "I’m buying a gift under $60.",
+        "id": "customization",
+        "message": "Can I engrave my dog's name on a product?",
         "checks": {
-            "must_have_fields": ["type", "intent", "content", "profile", "products_debug"],
-            "must_not_invent_when_products_present": True,
-        }
+            "has_content": True,
+            "content_mentions_any": ["engrav", "personal", "text", "name", "custom"],
+        },
     },
     {
-        "id": "policy_short",
-        "thread_id": "t_policy_short",
-        "message": "What’s your return policy?",
+        "id": "chinese_query",
+        "message": "我想买一个宠物纪念品，预算60美元以内",
         "checks": {
-            "must_have_fields": ["type", "intent", "content"],
-        }
+            "has_content": True,
+        },
     },
     {
-        "id": "cn_budget",
-        "thread_id": "t_cn_budget",
-        "message": "我想买一个60刀以内的纪念品",
+        "id": "product_detail",
+        "message": "Tell me more about the Eternal Glow product.",
         "checks": {
-            "must_have_fields": ["type", "intent", "content", "profile", "products_debug"],
-        }
+            "has_content": True,
+            "content_mentions_any": ["Eternal Glow", "eternal", "glow", "light", "night"],
+        },
     },
 ]
 
 
-# ====== 3) 通用断言工具 ======
-def fail(msg: str) -> Dict[str, Any]:
-    return {"ok": False, "reason": msg}
+def extract_ai_content(state: dict) -> str:
+    """Extract the final AI message content from state."""
+    for msg in reversed(state.get("messages", [])):
+        if isinstance(msg, AIMessage) and not msg.tool_calls:
+            return msg.content or ""
+    return ""
 
-def ok() -> Dict[str, Any]:
-    return {"ok": True, "reason": ""}
 
-def assert_has_fields(resp: Dict[str, Any], fields: List[str]) -> Dict[str, Any]:
-    missing = [f for f in fields if f not in resp]
-    if missing:
-        return fail(f"Missing fields: {missing}")
-    return ok()
+def run_one(case: dict) -> dict:
+    thread_id = f"test_{case['id']}"
 
-def extract_titles_from_debug(resp: Dict[str, Any]) -> List[str]:
-    items = resp.get("products_debug") or []
-    titles = []
-    for it in items:
-        t = it.get("title")
-        if t:
-            titles.append(t)
-    return titles
+    try:
+        state = graph.invoke(
+            {"messages": [HumanMessage(content=case["message"])]},
+            config={"configurable": {"thread_id": thread_id}},
+        )
+    except Exception as e:
+        return {"case_id": case["id"], "ok": False, "failures": [f"Exception: {e}"], "content": "", "products_count": 0}
 
-def assert_no_invented_products(resp: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    如果 products_debug 非空，则 content 中不应该出现 debug 列表之外的商品标题（粗略检查）。
-    这是个“保守检查”：我们只检查是否提到了 debug 里完全不存在的 title 片段。
-    """
-    debug_titles = extract_titles_from_debug(resp)
-    if not debug_titles:
-        return ok()
-
-    content = (resp.get("content") or "").lower()
-
-    # 只要 content 提到了某个 debug title 的关键片段，就算通过。
-    # 若 content 完全没提任何 debug title，也不一定失败（可能在追问），这里不强制。
-    mentions_any = any(t.lower()[:20] in content for t in debug_titles if len(t) >= 20)
-    if mentions_any:
-        return ok()
-
-    # 如果是 answer 且 debug 非空，但一个 debug title 都没提到，通常意味着模型可能在乱说
-    if resp.get("type") == "answer":
-        return fail("products_debug is non-empty, but content doesn't mention any debug product title (possible mismatch).")
-
-    return ok()
-
-def assert_has_urn_vs_keepsake_actions(resp: Dict[str, Any]) -> Dict[str, Any]:
-    actions = resp.get("actions") or []
-    labels = " ".join((a.get("label","") for a in actions)).lower()
-    has_urn = "choose: urn" in labels
-    has_keep = "choose: keepsake" in labels
-    if has_urn and has_keep:
-        return ok()
-    return fail("Expected quick-choice actions for Urn vs Keepsake, but not found.")
-
-# ====== 4) 运行并打印报告 ======
-def run_one(case: Dict[str, Any]) -> Dict[str, Any]:
-    thread_id = case["thread_id"]
-    msg = case["message"]
-
-    state = graph.invoke(
-        {"user_message": msg},
-        config={"configurable": {"thread_id": thread_id}}
-    )
-
-    # 模拟 api_server.py 的返回格式（你可以按需扩展）
-    if state.get("needs_clarification"):
-        resp = {
-            "type": "clarify",
-            "intent": state.get("intent", "other"),
-            "content": state.get("clarification_question", ""),
-            "profile": state.get("profile", {}),
-            "products_debug": state.get("products_debug", []),
-            "tool_error": state.get("tool_error"),
-            "actions": state.get("actions", []),
-        }
-    else:
-        resp = {
-            "type": "answer",
-            "intent": state.get("intent", "other"),
-            "content": state.get("answer", ""),
-            "profile": state.get("profile", {}),
-            "products_debug": state.get("products_debug", []),
-            "tool_error": state.get("tool_error"),
-            "actions": state.get("actions", []),
-        }
-
-    # checks
+    content = extract_ai_content(state)
+    products = state.get("products", [])
     checks = case.get("checks", {})
-    results = []
+    failures = []
 
-    if "must_have_fields" in checks:
-        results.append(assert_has_fields(resp, checks["must_have_fields"]))
+    if checks.get("has_content") and not content.strip():
+        failures.append("Expected non-empty content, got empty")
 
-    if checks.get("must_not_invent_when_products_present"):
-        results.append(assert_no_invented_products(resp))
-    if checks.get("must_have_urn_keepsake_actions"):
-        results.append(assert_has_urn_vs_keepsake_actions(resp))
+    if "content_mentions_any" in checks:
+        keywords = checks["content_mentions_any"]
+        content_lower = content.lower()
+        if not any(kw.lower() in content_lower for kw in keywords):
+            failures.append(f"Content doesn't mention any of {keywords}")
 
-    ok_all = all(r["ok"] for r in results)
-    return {"case_id": case["id"], "ok": ok_all, "resp": resp, "checks": results}
+    return {
+        "case_id": case["id"],
+        "ok": len(failures) == 0,
+        "failures": failures,
+        "content": content[:200],
+        "products_count": len(products),
+    }
+
 
 def main():
     reports = [run_one(c) for c in TEST_CASES]
     passed = sum(1 for r in reports if r["ok"])
     total = len(reports)
 
-    print("\n================ Regression Suite ================\n")
-    print(f"Passed: {passed}/{total}\n")
+    print("\n" + "=" * 50)
+    print(f"  Regression Suite: {passed}/{total} passed")
+    print("=" * 50 + "\n")
 
     for r in reports:
-        status = "✅ PASS" if r["ok"] else "❌ FAIL"
-        print(f"{status}  {r['case_id']}")
+        status = "PASS" if r["ok"] else "FAIL"
+        print(f"  [{status}] {r['case_id']}")
         if not r["ok"]:
-            for chk in r["checks"]:
-                if not chk["ok"]:
-                    print(f"  - {chk['reason']}")
-        # 简短打印关键信息
-        print(f"  type={r['resp'].get('type')} intent={r['resp'].get('intent')}")
-        print(f"  content_snippet={json.dumps((r['resp'].get('content') or '')[:120])}")
-        print(f"  products_debug_count={len(r['resp'].get('products_debug') or [])}")
+            for f in r.get("failures", []):
+                print(f"    - {f}")
+        print(f"    content: {r['content'][:100]}...")
+        print(f"    products: {r.get('products_count', 0)}")
         print()
 
-    # 如果你想失败就退出非0（方便 CI），打开下面两行
-    # import sys
-    # sys.exit(0 if passed == total else 1)
+    sys.exit(0 if passed == total else 1)
+
 
 if __name__ == "__main__":
     main()
