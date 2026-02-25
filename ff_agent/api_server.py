@@ -1,27 +1,34 @@
+"""FastAPI server for the ForeverFurEver agent."""
+
+from __future__ import annotations
+
+import logging
+import sqlite3
+import uuid
+from pathlib import Path
+
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-from pathlib import Path
-from dotenv import load_dotenv
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from langchain_core.messages import AIMessage, HumanMessage
+from langgraph.checkpoint.sqlite import SqliteSaver
+from pydantic import BaseModel
 
 from ff_agent.graph import build_graph
 
-# ------------------------
-# 基础初始化
-# ------------------------
-
 load_dotenv()
+
 app = FastAPI()
-# ✅ NEW: CORS (必须放在路由定义前)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://foreverfurever.org",
         "https://www.foreverfurever.org",
-        "http://127.0.0.1:8000",   # 可选：本地调试前端时用
-        "http://localhost:8000"    # 可选
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
         "https://foreverfurever.myshopify.com",
         "https://admin.shopify.com",
     ],
@@ -32,109 +39,102 @@ app.add_middleware(
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STATIC_DIR = PROJECT_ROOT / "static"
-DOCS_DIR = PROJECT_ROOT / "docs"
+DATA_DIR = PROJECT_ROOT / "data"
 
-API_VERSION = "0.4.0"
+DATA_DIR.mkdir(exist_ok=True)
 
-# ------------------------
-# 静态页面（前端聊天）
-# ------------------------
+API_VERSION = "1.0.0"
+
+# ---------- Static files ----------
+
 @app.get("/")
 def root():
     return FileResponse(STATIC_DIR / "chat.html")
 
-app.mount(
-    "/static",
-    StaticFiles(directory=STATIC_DIR),
-    name="static"
-)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-# ------------------------
-# 数据结构
-# ------------------------
+# ---------- Request/Response models ----------
 
 class ChatRequest(BaseModel):
     message: str
-    thread_id: str = "default"
+    thread_id: str = ""
 
-# ------------------------
-# 加载知识 + 构建 Agent
-# ------------------------
+class FeedbackRequest(BaseModel):
+    thread_id: str
+    message_index: int = 0
+    rating: str  # "helpful" | "not_helpful"
+    comment: str = ""
 
-KNOWLEDGE_PATH = DOCS_DIR / "01_store_knowledge.md"
+# ---------- Graph initialization ----------
 
-def load_store_knowledge() -> str:
-    if KNOWLEDGE_PATH.exists():
-        return KNOWLEDGE_PATH.read_text(encoding="utf-8")
-    return ""
+DB_PATH = str(DATA_DIR / "conversations.db")
 
-def build_system_prompt(store_knowledge: str) -> str:
-    return (
-        "You are a compassionate assistant for an English-first pet memorial store (ForeverFurEver).\n"
-        "Default to English unless user writes in Chinese.\n"
-        "Personalization is TEXT-ONLY.\n\n"
-        f"{store_knowledge}"
-    )
+_conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+checkpointer = SqliteSaver(conn=_conn)
+graph = build_graph(checkpointer=checkpointer)
 
-store_knowledge = load_store_knowledge()
-system_prompt = build_system_prompt(store_knowledge)
+# ---------- Helpers ----------
 
-# ✅ 只初始化一次 Graph（很重要）
-graph = build_graph(system_prompt)
+def extract_response(state: dict) -> dict:
+    """Build the API response from the final graph state."""
+    messages = state.get("messages", [])
+    products = state.get("products", [])
+    ui_actions = state.get("ui_actions", [])
 
-# ------------------------
-# 统一返回结构
-# ------------------------
+    # Find the last AI message (non-tool-call)
+    content = ""
+    for msg in reversed(messages):
+        if isinstance(msg, AIMessage) and not msg.tool_calls:
+            content = msg.content or ""
+            break
 
-def make_response(result: dict, resp_type: str) -> dict:
     return {
-        "type": resp_type,
-        "intent": result.get("intent", "other"),
-        "content": (
-            result.get("answer", "")
-            if resp_type == "answer"
-            else result.get("clarification_question", "")
-        ),
-        "profile": result.get("profile", {}) or {},
-        "actions": result.get("actions", []) or [],
-        "products_debug": result.get("products_debug", []) or [],
-        "tool_error": result.get("tool_error", None),
+        "type": "answer",
+        "content": content,
+        "products": products or [],
+        "actions": ui_actions or [],
+        "thread_id": state.get("thread_id", ""),
         "version": API_VERSION,
     }
 
-# ------------------------
-# Health check
-# ------------------------
+# ---------- Endpoints ----------
 
 @app.get("/health")
 def health():
     return {"ok": True, "version": API_VERSION}
 
-# ------------------------
-# Chat API（唯一入口）
-# ------------------------
 
 @app.post("/chat")
 def chat(req: ChatRequest):
+    thread_id = req.thread_id or str(uuid.uuid4())
+
     try:
         result = graph.invoke(
-            {"user_message": req.message},
-            config={"configurable": {"thread_id": req.thread_id}}
+            {
+                "messages": [HumanMessage(content=req.message)],
+                "thread_id": thread_id,
+            },
+            config={"configurable": {"thread_id": thread_id}},
         )
 
-        if result.get("needs_clarification"):
-            return make_response(result, "clarify")
-
-        return make_response(result, "answer")
+        response = extract_response(result)
+        response["thread_id"] = thread_id
+        return response
 
     except Exception as e:
+        logging.exception("Chat error")
         return {
             "type": "error",
-            "intent": "other",
-            "content": "Server error. Please try again.",
-            "profile": {},
+            "content": "Sorry, something went wrong. Please try again.",
+            "products": [],
             "actions": [],
-            "products_debug": [],
-            "tool_error": str(e),
+            "thread_id": thread_id,
             "version": API_VERSION,
+            "error_detail": str(e),
         }
+
+
+@app.post("/feedback")
+def feedback(req: FeedbackRequest):
+    logging.info(f"Feedback: thread={req.thread_id} rating={req.rating} comment={req.comment}")
+    return {"ok": True}
