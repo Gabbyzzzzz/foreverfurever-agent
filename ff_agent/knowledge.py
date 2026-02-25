@@ -20,7 +20,7 @@ def get_embedding_function():
         raise RuntimeError("Missing GEMINI_API_KEY or GOOGLE_API_KEY in environment")
     return GoogleGenerativeAiEmbeddingFunction(
         api_key=api_key,
-        model_name="models/text-embedding-004",
+        model_name="models/gemini-embedding-001",
     )
 
 
