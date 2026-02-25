@@ -57,5 +57,23 @@ def get_collection(collection_name: str) -> list[dict]:
     return _get_collection(collection_name)
 
 
+from ff_agent.knowledge import search_knowledge as _search_knowledge
+
+
+@tool
+def search_knowledge(query: str, category: str = "all") -> list[str]:
+    """Search the store knowledge base for brand info, policies, and FAQ.
+
+    Use this when a customer asks about store policies, shipping, returns,
+    customization options, or general FAQ questions. Also use for brand
+    information queries.
+
+    Args:
+        query: The search query describing what info is needed.
+        category: Filter results by category. Options: 'brand', 'policy', 'faq', 'all'.
+    """
+    return _search_knowledge(query, category=category)
+
+
 # Collected list of all tools for the agent
-ALL_TOOLS = [search_products, get_product_details, get_collection]
+ALL_TOOLS = [search_products, get_product_details, get_collection, search_knowledge]
