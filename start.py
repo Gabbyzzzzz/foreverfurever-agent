@@ -1,8 +1,7 @@
-"""Startup script: index knowledge base, then launch the API server.
+"""Startup script: launch the API server with optional Notion auto-sync.
 
-Render's free tier has an ephemeral filesystem, so ChromaDB data is lost
-on every deploy/restart. This script re-indexes knowledge before starting
-the server to ensure the knowledge base is always available.
+Knowledge is loaded into memory on first search — no external database
+or embedding API needed at startup.
 """
 
 import os
@@ -42,12 +41,12 @@ def start_auto_sync():
 
 
 def main():
-    # Step 1: Index knowledge into ChromaDB
-    print("=== Indexing knowledge base ===")
-    from ff_agent.index_knowledge import index_all
+    # Step 1: Pre-load knowledge into memory
+    print("=== Loading knowledge base ===")
+    from ff_agent.knowledge import reload_knowledge
 
-    index_all()
-    print("=== Knowledge indexing complete ===\n")
+    count = reload_knowledge()
+    print(f"=== Loaded {count} knowledge chunks ===\n")
 
     # Step 2: Start optional auto-sync
     start_auto_sync()

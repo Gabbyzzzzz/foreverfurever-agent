@@ -4,6 +4,5 @@ python-dotenv
 langgraph
 langchain-google-genai
 google-generativeai
-chromadb
 requests
 aiosqlite

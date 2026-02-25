@@ -132,7 +132,7 @@ def sync_knowledge() -> dict:
     """
     import requests
 
-    from ff_agent.index_knowledge import index_all
+    from ff_agent.knowledge import reload_knowledge
 
     token = os.getenv("NOTION_TOKEN")
     database_id = os.getenv("NOTION_DATABASE_ID")
@@ -206,8 +206,8 @@ def sync_knowledge() -> dict:
             logger.exception(f"Error syncing page {page_id}")
             results["errors"].append({"page_id": page_id, "error": str(e)})
 
-    # Re-index ChromaDB
-    index_all()
+    # Reload in-memory knowledge index
+    reload_knowledge()
     logger.info(
         f"Sync complete: {len(results['synced'])} synced, "
         f"{len(results['skipped'])} skipped, {len(results['errors'])} errors"
