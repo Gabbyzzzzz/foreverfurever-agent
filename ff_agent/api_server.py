@@ -57,6 +57,12 @@ API_VERSION = "1.0.0"
 def root():
     return FileResponse(STATIC_DIR / "chat.html")
 
+
+@app.get("/admin")
+def admin_page():
+    return FileResponse(STATIC_DIR / "admin.html")
+
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # ---------- Request/Response models ----------
