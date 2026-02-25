@@ -193,13 +193,6 @@ def health():
     return {"ok": True, "version": API_VERSION}
 
 
-@app.get("/debug/kb")
-def debug_kb(q: str = "refund"):
-    """Debug: show what the knowledge base returns for a query."""
-    from ff_agent.knowledge import search_knowledge, _chunks
-    results = search_knowledge(q)
-    return {"query": q, "chunks_loaded": len(_chunks), "results": [r[:200] for r in results]}
-
 
 @app.post("/chat")
 def chat(req: ChatRequest):
