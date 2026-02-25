@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import os
-import sqlite3
 import uuid
 from pathlib import Path
 
@@ -14,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from langchain_core.messages import AIMessage, HumanMessage
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.memory import MemorySaver
 from pydantic import BaseModel
 
 from ff_agent.graph import build_graph
@@ -74,10 +73,7 @@ class FeedbackRequest(BaseModel):
 
 # ---------- Graph initialization ----------
 
-DB_PATH = str(DATA_DIR / "conversations.db")
-
-_conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-checkpointer = SqliteSaver(conn=_conn)
+checkpointer = MemorySaver()
 graph = build_graph(checkpointer=checkpointer)
 
 # ---------- Helpers ----------

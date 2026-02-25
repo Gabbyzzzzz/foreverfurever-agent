@@ -2,7 +2,6 @@ fastapi
 uvicorn
 python-dotenv
 langgraph
-langgraph-checkpoint-sqlite
 langchain-google-genai
 google-generativeai
 chromadb
