@@ -179,28 +179,7 @@ def postprocess(state: GraphState) -> dict:
         except (json.JSONDecodeError, TypeError):
             pass
 
-    # Generate dynamic quick reply actions based on content,
-    # but only if the user hasn't already answered the question.
     content_lower = content.lower()
-
-    # Collect all user messages to check if they already answered
-    user_texts = " ".join(
-        msg.content.lower() for msg in messages if isinstance(msg, HumanMessage)
-    )
-
-    if "?" in content or "\uff1f" in content:
-        if any(kw in content_lower for kw in ["budget", "price", "spend", "\u9884\u7b97"]):
-            # Only show budget buttons if user hasn't mentioned a price yet
-            already_answered = any(kw in user_texts for kw in ["under $", "budget", "$50", "$100", "\u9884\u7b97"])
-            if not already_answered:
-                ui_actions.append({"type": "quick_reply", "label": "Under $50", "value": "I'd like something under $50"})
-                ui_actions.append({"type": "quick_reply", "label": "Under $100", "value": "I'd like something under $100"})
-        elif any(kw in content_lower for kw in ["gift", "yourself", "personal", "\u9001\u793c", "\u81ea\u7528"]):
-            # Only show gift/personal buttons if user hasn't answered yet
-            already_answered = any(kw in user_texts for kw in ["gift", "myself", "personal", "keepsake", "\u9001\u793c", "\u81ea\u7528"])
-            if not already_answered:
-                ui_actions.append({"type": "quick_reply", "label": "It's a gift", "value": "It's a gift for someone"})
-                ui_actions.append({"type": "quick_reply", "label": "For myself", "value": "It's for myself as a personal keepsake"})
 
     # Filter out products already shown in this conversation
     previously_viewed = set(state.get("viewed_handles", []))

@@ -29,48 +29,20 @@ def _make_state(ai_content, tool_products=None, user_messages=None, viewed_handl
     }
 
 
-# ---------- Quick reply button logic ----------
+# ---------- No quick reply buttons ----------
 
-def test_gift_buttons_appear_when_question_asked():
+def test_no_quick_reply_buttons():
+    """Quick reply buttons (gift/budget) were removed."""
     state = _make_state(
-        "Is this a gift for someone or for yourself?",
+        "Is this a gift for someone or for yourself? What's your budget?",
         user_messages=["I want a memorial"],
-    )
-    result = postprocess(state)
-    labels = [a["label"] for a in result["ui_actions"]]
-    assert "It's a gift" in labels
-    assert "For myself" in labels
-
-
-def test_gift_buttons_hidden_after_user_answers():
-    state = _make_state(
-        "Great! Is this a gift for someone or for yourself?",
-        user_messages=["I want a memorial", "It's a gift for my friend"],
     )
     result = postprocess(state)
     labels = [a["label"] for a in result["ui_actions"]]
     assert "It's a gift" not in labels
     assert "For myself" not in labels
-
-
-def test_budget_buttons_appear():
-    state = _make_state(
-        "What's your budget range?",
-        user_messages=["I want something nice"],
-    )
-    result = postprocess(state)
-    labels = [a["label"] for a in result["ui_actions"]]
-    assert "Under $50" in labels
-
-
-def test_budget_buttons_hidden_after_answer():
-    state = _make_state(
-        "What's your budget?",
-        user_messages=["I'd like something under $50"],
-    )
-    result = postprocess(state)
-    labels = [a["label"] for a in result["ui_actions"]]
     assert "Under $50" not in labels
+    assert "Under $100" not in labels
 
 
 # ---------- Product deduplication ----------
