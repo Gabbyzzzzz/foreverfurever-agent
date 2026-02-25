@@ -113,12 +113,24 @@ def _make_filename(title: str, category: str) -> str:
     return f"{prefix}{title}.md"
 
 
+NOTION_API = "https://api.notion.com/v1"
+NOTION_VERSION = "2022-06-28"
+
+
+def _notion_headers(token: str) -> dict:
+    return {
+        "Authorization": f"Bearer {token}",
+        "Notion-Version": NOTION_VERSION,
+        "Content-Type": "application/json",
+    }
+
+
 def sync_knowledge() -> dict:
     """Pull published pages from Notion and sync to knowledge/ directory.
 
     Returns dict with keys: synced, skipped, errors.
     """
-    from notion_client import Client
+    import requests
 
     from ff_agent.index_knowledge import index_all
 
@@ -128,20 +140,17 @@ def sync_knowledge() -> dict:
     if not token or not database_id:
         raise RuntimeError("NOTION_TOKEN and NOTION_DATABASE_ID must be set")
 
-    notion = Client(auth=token)
-
-    # Get data_source_id from the database (notion-client v3 API)
-    db = notion.databases.retrieve(database_id=database_id)
-    data_sources = db.get("data_sources", [])
-    if not data_sources:
-        raise RuntimeError(f"No data sources found for database {database_id}")
-    data_source_id = data_sources[0]["id"]
+    headers = _notion_headers(token)
 
     # Query pages with Status = Published
-    response = notion.data_sources.query(
-        data_source_id=data_source_id,
-        filter={"property": "Status", "select": {"equals": "Published"}},
+    resp = requests.post(
+        f"{NOTION_API}/databases/{database_id}/query",
+        headers=headers,
+        json={"filter": {"property": "Status", "select": {"equals": "Published"}}},
+        timeout=30,
     )
+    resp.raise_for_status()
+    response = resp.json()
 
     results = {"synced": [], "skipped": [], "errors": []}
 
@@ -162,8 +171,13 @@ def sync_knowledge() -> dict:
             category = (cat_prop.get("select") or {}).get("name", "general").lower()
 
             # Fetch page blocks (content)
-            blocks_response = notion.blocks.children.list(block_id=page_id)
-            blocks = blocks_response.get("results", [])
+            blocks_resp = requests.get(
+                f"{NOTION_API}/blocks/{page_id}/children",
+                headers=headers,
+                timeout=30,
+            )
+            blocks_resp.raise_for_status()
+            blocks = blocks_resp.json().get("results", [])
 
             # Convert to markdown
             markdown = blocks_to_markdown(blocks)
@@ -178,9 +192,11 @@ def sync_knowledge() -> dict:
 
             # Update Last Synced in Notion
             now_iso = datetime.now(timezone.utc).isoformat()
-            notion.pages.update(
-                page_id=page_id,
-                properties={"Last Synced": {"date": {"start": now_iso}}},
+            requests.patch(
+                f"{NOTION_API}/pages/{page_id}",
+                headers=headers,
+                json={"properties": {"Last Synced": {"date": {"start": now_iso}}}},
+                timeout=30,
             )
 
             results["synced"].append(title)

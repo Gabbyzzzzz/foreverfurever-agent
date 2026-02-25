@@ -7,4 +7,3 @@ google-generativeai
 chromadb
 requests
 aiosqlite
-notion-client
