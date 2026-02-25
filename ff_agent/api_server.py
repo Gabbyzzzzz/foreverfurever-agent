@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys
 import threading
 import time
 import uuid
@@ -19,11 +20,30 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.checkpoint.memory import MemorySaver
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ff_agent.graph import build_graph
 
 load_dotenv()
+
+# ---------- Structured logging ----------
+
+LOG_FORMAT = "json" if os.getenv("LOG_FORMAT", "json") == "json" else "text"
+
+
+def _structured_log(level: str, event: str, **kwargs):
+    """Write structured JSON log to stdout (Render captures stdout)."""
+    entry = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "level": level,
+        "event": event,
+        **kwargs,
+    }
+    if LOG_FORMAT == "json":
+        print(json.dumps(entry, ensure_ascii=False, default=str), flush=True)
+    else:
+        logging.log(getattr(logging, level.upper(), logging.INFO), f"{event}: {kwargs}")
+
 
 app = FastAPI()
 
@@ -54,7 +74,9 @@ DATA_DIR = PROJECT_ROOT / "data"
 
 DATA_DIR.mkdir(exist_ok=True)
 
-API_VERSION = "1.1.0"
+API_VERSION = "1.2.0"
+
+MAX_MESSAGE_LENGTH = 1000
 
 # ---------- Rate limiting ----------
 
@@ -72,6 +94,7 @@ async def rate_limit_middleware(request: Request, call_next):
             t for t in _rate_limits[client_ip] if now - t < RATE_LIMIT_WINDOW
         ]
         if len(_rate_limits[client_ip]) >= RATE_LIMIT_MAX:
+            _structured_log("warning", "rate_limit_hit", ip=client_ip)
             return JSONResponse(
                 status_code=429,
                 content={"detail": "Too many requests. Please wait a moment."},
@@ -97,14 +120,19 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # ---------- Request/Response models ----------
 
 class ChatRequest(BaseModel):
-    message: str
+    message: str = Field(..., max_length=MAX_MESSAGE_LENGTH)
     thread_id: str = ""
 
 class FeedbackRequest(BaseModel):
     thread_id: str
     message_index: int = 0
     rating: str  # "helpful" | "not_helpful"
-    comment: str = ""
+    comment: str = Field("", max_length=500)
+
+class TrackEvent(BaseModel):
+    event: str = Field(..., max_length=50)
+    thread_id: str = ""
+    data: dict = Field(default_factory=dict)
 
 # ---------- Graph initialization ----------
 
@@ -124,6 +152,9 @@ def log_conversation(thread_id: str, user_msg: str, ai_response: str, products: 
         "ai": ai_response[:500],
         "products": [p.get("title", "") for p in products],
     }
+    # Structured log to stdout (persistent on Render)
+    _structured_log("info", "conversation", **entry)
+    # Also write to local file (ephemeral on Render, useful locally)
     try:
         with open(CONV_LOG, "a") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
@@ -165,6 +196,7 @@ def health():
 @app.post("/chat")
 def chat(req: ChatRequest):
     thread_id = req.thread_id or str(uuid.uuid4())
+    start_time = time.time()
 
     try:
         result = graph.invoke(
@@ -177,11 +209,14 @@ def chat(req: ChatRequest):
 
         response = extract_response(result)
         response["thread_id"] = thread_id
+        elapsed = round(time.time() - start_time, 2)
+        _structured_log("info", "chat_response", thread_id=thread_id, elapsed_s=elapsed)
         log_conversation(thread_id, req.message, response["content"], response["products"])
         return response
 
     except Exception as e:
-        logging.exception("Chat error")
+        elapsed = round(time.time() - start_time, 2)
+        _structured_log("error", "chat_error", thread_id=thread_id, error=str(e), elapsed_s=elapsed)
         return {
             "type": "error",
             "content": "Sorry, something went wrong. Please try again.",
@@ -189,7 +224,6 @@ def chat(req: ChatRequest):
             "actions": [],
             "thread_id": thread_id,
             "version": API_VERSION,
-            "error_detail": str(e),
         }
 
 
@@ -200,6 +234,7 @@ async def chat_stream(req: ChatRequest):
     thread_id = req.thread_id or str(uuid.uuid4())
 
     async def event_generator():
+        start_time = time.time()
         yield f"data: {json.dumps({'type': 'start', 'thread_id': thread_id})}\n\n"
 
         input_data = {
@@ -241,9 +276,12 @@ async def chat_stream(req: ChatRequest):
                         yield f"data: {json.dumps({'type': 'actions', 'actions': actions})}\n\n"
 
         except Exception as e:
-            logging.exception("Stream error")
+            elapsed = round(time.time() - start_time, 2)
+            _structured_log("error", "stream_error", thread_id=thread_id, error=str(e), elapsed_s=elapsed)
             yield f"data: {json.dumps({'type': 'error', 'text': 'Sorry, something went wrong. Please try again.'})}\n\n"
 
+        elapsed = round(time.time() - start_time, 2)
+        _structured_log("info", "stream_response", thread_id=thread_id, elapsed_s=elapsed, tokens=len(full_content))
         log_conversation(thread_id, req.message, full_content, products)
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
@@ -258,6 +296,26 @@ async def chat_stream(req: ChatRequest):
     )
 
 
+# ---------- Analytics / Conversion tracking ----------
+
+@app.post("/track")
+def track_event(req: TrackEvent):
+    """Track frontend events (product clicks, buy clicks, etc.)."""
+    entry = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "track_event": req.event,
+        "thread_id": req.thread_id,
+        **req.data,
+    }
+    _structured_log("info", "track", **entry)
+    try:
+        with open(DATA_DIR / "events.jsonl", "a") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+    return {"ok": True}
+
+
 # ---------- Feedback ----------
 
 @app.post("/feedback")
@@ -268,7 +326,7 @@ def feedback(req: FeedbackRequest):
         "rating": req.rating,
         "comment": req.comment,
     }
-    logging.info(f"Feedback: {json.dumps(entry)}")
+    _structured_log("info", "feedback", **entry)
     try:
         with open(DATA_DIR / "feedback.jsonl", "a") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
@@ -306,8 +364,9 @@ def sync_knowledge_endpoint(authorization: str = Header()):
                 "skipped": results["skipped"],
                 "errors": results["errors"],
             }
+            _structured_log("info", "sync_complete", **_sync_status["last_result"])
         except Exception as e:
-            logging.exception("Sync error")
+            _structured_log("error", "sync_error", error=str(e))
             _sync_status["last_result"] = {"ok": False, "error": str(e)}
         finally:
             _sync_status["running"] = False

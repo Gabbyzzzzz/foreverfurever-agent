@@ -270,6 +270,8 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+.msg.restored { animation: none; }
+
 @media (max-width: 480px) {
   #chat-box { width: 100%; height: 100vh; max-height: none; margin: 0; border-radius: 0; }
 }
@@ -282,28 +284,77 @@ body {
   <div id="messages"></div>
   <div id="actions"></div>
   <div id="input-area">
-    <input id="input" placeholder="Ask me anything..." />
+    <input id="input" placeholder="Ask me anything..." maxlength="1000" />
     <button id="send">Send</button>
   </div>
 </div>
 
 <script>
-const STREAM_URL = window.location.origin + "/chat/stream";
-const FALLBACK_URL = window.location.origin + "/chat";
+var BASE_URL = window.location.origin;
+var STREAM_URL = BASE_URL + "/chat/stream";
+var FALLBACK_URL = BASE_URL + "/chat";
+var TRACK_URL = BASE_URL + "/track";
 
-const messagesEl = document.getElementById("messages");
-const actionsEl = document.getElementById("actions");
-const inputEl = document.getElementById("input");
-const sendBtn = document.getElementById("send");
+var messagesEl = document.getElementById("messages");
+var actionsEl = document.getElementById("actions");
+var inputEl = document.getElementById("input");
+var sendBtn = document.getElementById("send");
 
-let THREAD_ID = sessionStorage.getItem("ff_thread_id");
+// ---- Session & Persistence (localStorage) ----
+var THREAD_ID = localStorage.getItem("ff_thread_id");
 if (!THREAD_ID) {
   THREAD_ID = "t_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-  sessionStorage.setItem("ff_thread_id", THREAD_ID);
+  localStorage.setItem("ff_thread_id", THREAD_ID);
 }
 
-let sending = false;
+var HISTORY_KEY = "ff_chat_history_" + THREAD_ID;
+var sending = false;
 
+// ---- Sanitization ----
+function escapeHtml(text) {
+  var d = document.createElement("div");
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+// ---- Analytics / Conversion Tracking ----
+function trackEvent(event, data) {
+  try {
+    fetch(TRACK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: event, thread_id: THREAD_ID, data: data || {} }),
+    });
+  } catch(e) {}
+}
+
+// ---- Conversation Persistence ----
+function saveHistory(role, text) {
+  try {
+    var history = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+    history.push({ role: role, text: text, ts: Date.now() });
+    if (history.length > 50) history = history.slice(-50);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  } catch(e) {}
+}
+
+function restoreHistory() {
+  try {
+    var history = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+    if (history.length === 0) return false;
+
+    history.forEach(function(entry) {
+      var div = document.createElement("div");
+      div.className = "msg " + entry.role + " restored";
+      div.textContent = entry.text;
+      messagesEl.appendChild(div);
+    });
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return true;
+  } catch(e) { return false; }
+}
+
+// ---- UI Helpers ----
 function addMessage(text, cls) {
   var div = document.createElement("div");
   div.className = "msg " + cls;
@@ -340,23 +391,30 @@ function renderProducts(products) {
     card.className = "product-card";
 
     var imgHtml = p.image_url
-      ? '<img src="' + p.image_url + '" alt="' + (p.title || '') + '" />'
+      ? '<img src="' + escapeHtml(p.image_url) + '" alt="' + escapeHtml(p.title || '') + '" />'
       : '<div style="width:100%;height:120px;background:#eee;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px;">No image</div>';
 
     var priceText = p.price ? "$" + parseFloat(p.price).toFixed(2) : "";
-    var buyHtml = (p.checkout_url && p.available !== false)
-      ? '<a class="product-card-buy" href="' + p.checkout_url + '" target="_blank">Buy Now</a>'
-      : '';
+
+    var viewUrl = escapeHtml(p.url || "#");
+    var viewBtn = '<a class="product-card-btn" href="' + viewUrl + '" target="_blank" data-track="view_product" data-product="' + escapeHtml(p.handle || '') + '">View Details</a>';
+
+    var buyHtml = "";
+    if (p.checkout_url && p.available !== false) {
+      buyHtml = '<a class="product-card-buy" href="' + escapeHtml(p.checkout_url) + '" target="_blank" data-track="buy_click" data-product="' + escapeHtml(p.handle || '') + '">Buy Now</a>';
+    }
 
     card.innerHTML =
       imgHtml +
       '<div class="product-card-body">' +
-        '<div class="product-card-title">' + (p.title || "Product") + '</div>' +
-        '<div class="product-card-price">' + priceText + '</div>' +
-        '<a class="product-card-btn" href="' + (p.url || "#") + '" target="_blank">View Details</a>' +
+        '<div class="product-card-title">' + escapeHtml(p.title || "Product") + '</div>' +
+        '<div class="product-card-price">' + escapeHtml(priceText) + '</div>' +
+        viewBtn +
         buyHtml +
       '</div>';
     container.appendChild(card);
+
+    trackEvent("product_impression", { handle: p.handle, title: p.title });
   });
 
   messagesEl.appendChild(container);
@@ -372,7 +430,10 @@ function renderActions(actions) {
       var btn = document.createElement("button");
       btn.className = "quick-reply";
       btn.textContent = a.label || "Quick reply";
-      btn.onclick = function() { sendMessage(a.value || a.label); };
+      btn.onclick = function() {
+        trackEvent("quick_reply_click", { label: a.label });
+        sendMessage(a.value || a.label);
+      };
       actionsEl.appendChild(btn);
     } else if (a.type === "open_url") {
       var link = document.createElement("a");
@@ -380,18 +441,34 @@ function renderActions(actions) {
       link.textContent = a.label || "Open link";
       link.href = a.url || "#";
       link.target = "_blank";
+      link.onclick = function() {
+        trackEvent("link_click", { label: a.label, url: a.url });
+      };
       actionsEl.appendChild(link);
     }
   });
 }
 
-// SSE streaming send
+// ---- Click tracking for product cards (event delegation) ----
+messagesEl.addEventListener("click", function(e) {
+  var el = e.target.closest("[data-track]");
+  if (el) {
+    trackEvent(el.getAttribute("data-track"), {
+      handle: el.getAttribute("data-product") || "",
+      url: el.href || "",
+    });
+  }
+});
+
+// ---- SSE streaming send ----
 async function sendMessage(text) {
   text = (text || "").trim();
   if (!text || sending) return;
+  if (text.length > 1000) text = text.slice(0, 1000);
   sending = true;
 
   addMessage(text, "user");
+  saveHistory("user", text);
   inputEl.value = "";
   clearActions();
   showTyping();
@@ -412,6 +489,7 @@ async function sendMessage(text) {
     var decoder = new TextDecoder();
     var buffer = "";
     var aiDiv = null;
+    var aiText = "";
 
     while (true) {
       var result = await reader.read();
@@ -433,7 +511,7 @@ async function sendMessage(text) {
           if (data.type === "start") {
             if (data.thread_id) {
               THREAD_ID = data.thread_id;
-              sessionStorage.setItem("ff_thread_id", THREAD_ID);
+              localStorage.setItem("ff_thread_id", THREAD_ID);
             }
           } else if (data.type === "token") {
             hideTyping();
@@ -442,11 +520,12 @@ async function sendMessage(text) {
               aiDiv.className = "msg ai";
               messagesEl.appendChild(aiDiv);
             }
-            aiDiv.textContent += data.text;
+            aiText += data.text;
+            aiDiv.textContent = aiText;
             messagesEl.scrollTop = messagesEl.scrollHeight;
           } else if (data.type === "content") {
-            // Fallback: full content at once
             hideTyping();
+            aiText = data.text;
             if (!aiDiv) {
               aiDiv = addMessage(data.text, "ai");
             } else {
@@ -458,19 +537,17 @@ async function sendMessage(text) {
             renderActions(data.actions);
           } else if (data.type === "error") {
             hideTyping();
-            addMessage(data.text || "Something went wrong.", "ai");
+            aiText = data.text || "Something went wrong.";
+            addMessage(aiText, "ai");
           }
         }
       }
     }
 
-    // If no tokens were received at all
-    if (!aiDiv) {
-      hideTyping();
-    }
+    if (aiText) saveHistory("ai", aiText);
+    if (!aiDiv) hideTyping();
 
   } catch (e) {
-    // Fallback to non-streaming endpoint
     hideTyping();
     try {
       var resp = await fetch(FALLBACK_URL, {
@@ -479,12 +556,15 @@ async function sendMessage(text) {
         body: JSON.stringify({ message: text, thread_id: THREAD_ID }),
       });
       var data = await resp.json();
-      if (data.content) addMessage(data.content, "ai");
+      if (data.content) {
+        addMessage(data.content, "ai");
+        saveHistory("ai", data.content);
+      }
       if (data.products && data.products.length > 0) renderProducts(data.products);
       if (data.actions && data.actions.length > 0) renderActions(data.actions);
       if (data.thread_id) {
         THREAD_ID = data.thread_id;
-        sessionStorage.setItem("ff_thread_id", THREAD_ID);
+        localStorage.setItem("ff_thread_id", THREAD_ID);
       }
     } catch (e2) {
       addMessage("Network error. Please check your connection.", "ai");
@@ -500,7 +580,15 @@ inputEl.addEventListener("keydown", function(e) {
   if (e.key === "Enter") sendMessage(inputEl.value);
 });
 
-addMessage("Hi! I'm here to help you find the perfect memorial for your beloved pet. Feel free to ask about our products, pricing, or policies.", "ai");
+// ---- Initialize ----
+var hasHistory = restoreHistory();
+if (!hasHistory) {
+  var greeting = "Hi! I'm here to help you find the perfect memorial for your beloved pet. Feel free to ask about our products, pricing, or policies.";
+  addMessage(greeting, "ai");
+  saveHistory("ai", greeting);
+}
+
+trackEvent("session_start", { restored: hasHistory });
 </script>
 </body>
 </html>
