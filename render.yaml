@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: foreverfurever-agent
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python start.py
+    envVars:
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: SHOPIFY_STORE_DOMAIN
+        sync: false
+      - key: SHOPIFY_STOREFRONT_TOKEN
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.11"

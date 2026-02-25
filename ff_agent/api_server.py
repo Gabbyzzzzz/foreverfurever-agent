@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sqlite3
 import uuid
 from pathlib import Path
@@ -22,16 +23,22 @@ load_dotenv()
 
 app = FastAPI()
 
+_default_origins = [
+    "https://foreverfurever.org",
+    "https://www.foreverfurever.org",
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
+    "https://foreverfurever.myshopify.com",
+    "https://admin.shopify.com",
+]
+# Allow adding extra origins via env var (comma-separated)
+_extra = os.getenv("CORS_EXTRA_ORIGINS", "")
+if _extra:
+    _default_origins.extend(o.strip() for o in _extra.split(",") if o.strip())
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://foreverfurever.org",
-        "https://www.foreverfurever.org",
-        "http://127.0.0.1:8000",
-        "http://localhost:8000",
-        "https://foreverfurever.myshopify.com",
-        "https://admin.shopify.com",
-    ],
+    allow_origins=_default_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
