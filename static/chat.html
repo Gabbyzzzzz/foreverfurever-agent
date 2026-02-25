@@ -3,23 +3,36 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>ForeverFurEver Agent</title>
+<title>ForeverFurEver</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+:root {
+  --brand: #9580D6;
+  --brand-dark: #7A68B8;
+  --brand-light: #EDE9F6;
+  --text: #1a1a1a;
+  --text-muted: rgba(0,0,0,0.55);
+  --bg: #f7f6fa;
+  --white: #ffffff;
+  --border: #e8e5ef;
+}
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #f5f5f5;
-  color: #333;
+  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
 }
 
 #chat-box {
   width: 440px;
   max-width: 100vw;
   margin: 20px auto;
-  background: #fff;
+  background: var(--white);
   border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(0,0,0,.08);
+  box-shadow: 0 4px 24px rgba(149,128,214,0.12);
   display: flex;
   flex-direction: column;
   height: calc(100vh - 40px);
@@ -29,10 +42,18 @@ body {
 
 #chat-header {
   padding: 16px 20px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border);
   font-weight: 600;
   font-size: 15px;
-  color: #111;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#chat-header::before {
+  content: "\2726";
+  color: var(--brand);
+  font-size: 16px;
 }
 
 #messages {
@@ -49,37 +70,37 @@ body {
   padding: 10px 14px;
   border-radius: 12px;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.6;
   word-wrap: break-word;
   white-space: pre-wrap;
 }
 
 .user {
   align-self: flex-end;
-  background: #111;
-  color: #fff;
+  background: var(--brand);
+  color: var(--white);
   border-bottom-right-radius: 4px;
 }
 
 .ai {
   align-self: flex-start;
-  background: #f0f0f0;
-  color: #111;
+  background: var(--brand-light);
+  color: var(--text);
   border-bottom-left-radius: 4px;
 }
 
-/* Typing indicator */
 .typing {
   align-self: flex-start;
   padding: 10px 14px;
-  background: #f0f0f0;
+  background: var(--brand-light);
   border-radius: 12px;
   display: flex;
   gap: 4px;
 }
 .typing span {
   width: 6px; height: 6px;
-  background: #999;
+  background: var(--brand);
+  opacity: 0.5;
   border-radius: 50%;
   animation: bounce 1.2s infinite;
 }
@@ -99,17 +120,17 @@ body {
   scroll-snap-type: x mandatory;
 }
 .product-cards::-webkit-scrollbar { height: 4px; }
-.product-cards::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
+.product-cards::-webkit-scrollbar-thumb { background: var(--brand); border-radius: 2px; opacity: 0.4; }
 
 .product-card {
   min-width: 160px;
   max-width: 180px;
-  border: 1px solid #e5e5e5;
+  border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
   flex-shrink: 0;
   scroll-snap-align: start;
-  background: #fff;
+  background: var(--white);
 }
 .product-card img {
   width: 100%;
@@ -117,14 +138,12 @@ body {
   object-fit: cover;
   background: #f5f5f5;
 }
-.product-card-body {
-  padding: 8px 10px;
-}
+.product-card-body { padding: 8px 10px; }
 .product-card-title {
   font-size: 12px;
   font-weight: 600;
   line-height: 1.3;
-  color: #111;
+  color: var(--text);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -133,7 +152,7 @@ body {
 .product-card-price {
   font-size: 13px;
   font-weight: 700;
-  color: #111;
+  color: var(--brand-dark);
   margin-top: 4px;
 }
 .product-card-btn {
@@ -141,17 +160,37 @@ body {
   width: 100%;
   padding: 6px;
   margin-top: 6px;
-  border: 1px solid #111;
+  border: 1.5px solid var(--brand);
   border-radius: 6px;
-  background: #fff;
-  color: #111;
+  background: var(--white);
+  color: var(--brand);
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   text-align: center;
   text-decoration: none;
+  font-family: inherit;
+  transition: all 0.15s;
 }
-.product-card-btn:hover { background: #111; color: #fff; }
+.product-card-btn:hover { background: var(--brand); color: var(--white); }
+.product-card-buy {
+  display: block;
+  width: 100%;
+  padding: 6px;
+  margin-top: 4px;
+  border: none;
+  border-radius: 6px;
+  background: var(--brand);
+  color: var(--white);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.product-card-buy:hover { background: var(--brand-dark); }
 
 /* Actions / Quick replies */
 #actions {
@@ -163,67 +202,74 @@ body {
 
 .quick-reply {
   padding: 8px 14px;
-  border: 1px solid #ddd;
+  border: 1.5px solid var(--brand);
   border-radius: 20px;
-  background: #fff;
-  color: #333;
+  background: var(--white);
+  color: var(--brand);
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
+  font-family: inherit;
 }
-.quick-reply:hover { background: #111; color: #fff; border-color: #111; }
+.quick-reply:hover { background: var(--brand); color: var(--white); }
 
 .url-btn {
   padding: 8px 14px;
   border: none;
   border-radius: 20px;
-  background: #111;
-  color: #fff;
+  background: var(--brand);
+  color: var(--white);
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
   text-decoration: none;
   display: inline-block;
+  font-family: inherit;
+  transition: all 0.15s;
 }
-.url-btn:hover { opacity: 0.85; }
+.url-btn:hover { background: var(--brand-dark); }
 
 /* Input area */
 #input-area {
   display: flex;
   gap: 8px;
   padding: 12px 20px 16px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border);
 }
 
 #input {
   flex: 1;
   padding: 10px 14px;
   border-radius: 10px;
-  border: 1px solid #ddd;
+  border: 1.5px solid var(--border);
   font-size: 14px;
   outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s;
 }
-#input:focus { border-color: #111; }
+#input:focus { border-color: var(--brand); }
 
 #send {
   padding: 10px 18px;
   border-radius: 10px;
   border: none;
-  background: #111;
-  color: #fff;
+  background: var(--brand);
+  color: var(--white);
   font-size: 14px;
   cursor: pointer;
   font-weight: 600;
+  font-family: inherit;
+  transition: background 0.15s;
 }
-#send:hover { opacity: 0.85; }
+#send:hover { background: var(--brand-dark); }
 
-/* Animations */
 .msg, .product-cards { animation: fadeIn 0.25s ease-out; }
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Responsive */
 @media (max-width: 480px) {
   #chat-box { width: 100%; height: 100vh; max-height: none; margin: 0; border-radius: 0; }
 }
@@ -242,7 +288,8 @@ body {
 </div>
 
 <script>
-const API_URL = window.location.origin + "/chat";
+const STREAM_URL = window.location.origin + "/chat/stream";
+const FALLBACK_URL = window.location.origin + "/chat";
 
 const messagesEl = document.getElementById("messages");
 const actionsEl = document.getElementById("actions");
@@ -255,16 +302,19 @@ if (!THREAD_ID) {
   sessionStorage.setItem("ff_thread_id", THREAD_ID);
 }
 
+let sending = false;
+
 function addMessage(text, cls) {
-  const div = document.createElement("div");
+  var div = document.createElement("div");
   div.className = "msg " + cls;
   div.textContent = text;
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
+  return div;
 }
 
 function showTyping() {
-  const div = document.createElement("div");
+  var div = document.createElement("div");
   div.className = "typing";
   div.id = "typing-indicator";
   div.innerHTML = "<span></span><span></span><span></span>";
@@ -273,36 +323,38 @@ function showTyping() {
 }
 
 function hideTyping() {
-  const el = document.getElementById("typing-indicator");
+  var el = document.getElementById("typing-indicator");
   if (el) el.remove();
 }
 
-function clearActions() {
-  actionsEl.innerHTML = "";
-}
+function clearActions() { actionsEl.innerHTML = ""; }
 
 function renderProducts(products) {
   if (!products || products.length === 0) return;
 
-  const container = document.createElement("div");
+  var container = document.createElement("div");
   container.className = "product-cards";
 
   products.forEach(function(p) {
-    const card = document.createElement("div");
+    var card = document.createElement("div");
     card.className = "product-card";
 
-    const imgHtml = p.image_url
+    var imgHtml = p.image_url
       ? '<img src="' + p.image_url + '" alt="' + (p.title || '') + '" />'
       : '<div style="width:100%;height:120px;background:#eee;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px;">No image</div>';
 
-    const priceText = p.price ? "$" + parseFloat(p.price).toFixed(2) : "";
+    var priceText = p.price ? "$" + parseFloat(p.price).toFixed(2) : "";
+    var buyHtml = (p.checkout_url && p.available !== false)
+      ? '<a class="product-card-buy" href="' + p.checkout_url + '" target="_blank">Buy Now</a>'
+      : '';
 
     card.innerHTML =
       imgHtml +
       '<div class="product-card-body">' +
         '<div class="product-card-title">' + (p.title || "Product") + '</div>' +
         '<div class="product-card-price">' + priceText + '</div>' +
-        '<a class="product-card-btn" href="' + (p.url || "#") + '" target="_blank">View Product</a>' +
+        '<a class="product-card-btn" href="' + (p.url || "#") + '" target="_blank">View Details</a>' +
+        buyHtml +
       '</div>';
     container.appendChild(card);
   });
@@ -333,50 +385,114 @@ function renderActions(actions) {
   });
 }
 
-function sendMessage(text) {
+// SSE streaming send
+async function sendMessage(text) {
   text = (text || "").trim();
-  if (!text) return;
+  if (!text || sending) return;
+  sending = true;
 
   addMessage(text, "user");
   inputEl.value = "";
   clearActions();
   showTyping();
+  sendBtn.disabled = true;
 
-  fetch(API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message: text, thread_id: THREAD_ID }),
-  })
-  .then(function(resp) { return resp.json(); })
-  .then(function(data) {
+  try {
+    var response = await fetch(STREAM_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, thread_id: THREAD_ID }),
+    });
+
+    if (!response.ok || !response.body) {
+      throw new Error("Stream unavailable");
+    }
+
+    var reader = response.body.getReader();
+    var decoder = new TextDecoder();
+    var buffer = "";
+    var aiDiv = null;
+
+    while (true) {
+      var result = await reader.read();
+      if (result.done) break;
+
+      buffer += decoder.decode(result.value, { stream: true });
+
+      while (buffer.indexOf("\n\n") !== -1) {
+        var idx = buffer.indexOf("\n\n");
+        var chunk = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+
+        var lines = chunk.split("\n");
+        for (var i = 0; i < lines.length; i++) {
+          if (lines[i].indexOf("data: ") !== 0) continue;
+          var data;
+          try { data = JSON.parse(lines[i].slice(6)); } catch(e) { continue; }
+
+          if (data.type === "start") {
+            if (data.thread_id) {
+              THREAD_ID = data.thread_id;
+              sessionStorage.setItem("ff_thread_id", THREAD_ID);
+            }
+          } else if (data.type === "token") {
+            hideTyping();
+            if (!aiDiv) {
+              aiDiv = document.createElement("div");
+              aiDiv.className = "msg ai";
+              messagesEl.appendChild(aiDiv);
+            }
+            aiDiv.textContent += data.text;
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          } else if (data.type === "content") {
+            // Fallback: full content at once
+            hideTyping();
+            if (!aiDiv) {
+              aiDiv = addMessage(data.text, "ai");
+            } else {
+              aiDiv.textContent = data.text;
+            }
+          } else if (data.type === "products") {
+            renderProducts(data.products);
+          } else if (data.type === "actions") {
+            renderActions(data.actions);
+          } else if (data.type === "error") {
+            hideTyping();
+            addMessage(data.text || "Something went wrong.", "ai");
+          }
+        }
+      }
+    }
+
+    // If no tokens were received at all
+    if (!aiDiv) {
+      hideTyping();
+    }
+
+  } catch (e) {
+    // Fallback to non-streaming endpoint
     hideTyping();
-
-    if (data.type === "error") {
-      addMessage("Sorry, something went wrong. Please try again.", "ai");
-      return;
+    try {
+      var resp = await fetch(FALLBACK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text, thread_id: THREAD_ID }),
+      });
+      var data = await resp.json();
+      if (data.content) addMessage(data.content, "ai");
+      if (data.products && data.products.length > 0) renderProducts(data.products);
+      if (data.actions && data.actions.length > 0) renderActions(data.actions);
+      if (data.thread_id) {
+        THREAD_ID = data.thread_id;
+        sessionStorage.setItem("ff_thread_id", THREAD_ID);
+      }
+    } catch (e2) {
+      addMessage("Network error. Please check your connection.", "ai");
     }
+  }
 
-    if (data.content) {
-      addMessage(data.content, "ai");
-    }
-
-    if (data.products && data.products.length > 0) {
-      renderProducts(data.products);
-    }
-
-    if (data.actions && data.actions.length > 0) {
-      renderActions(data.actions);
-    }
-
-    if (data.thread_id) {
-      THREAD_ID = data.thread_id;
-      sessionStorage.setItem("ff_thread_id", THREAD_ID);
-    }
-  })
-  .catch(function() {
-    hideTyping();
-    addMessage("Network error. Please check your connection.", "ai");
-  });
+  sendBtn.disabled = false;
+  sending = false;
 }
 
 sendBtn.onclick = function() { sendMessage(inputEl.value); };

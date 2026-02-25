@@ -43,6 +43,12 @@ def _node_to_product(node: dict) -> dict:
     images = node.get("images", {}).get("edges", [])
     image_url = images[0]["node"]["url"] if images else None
 
+    # Extract variant ID for checkout URL
+    variants = node.get("variants", {}).get("edges", [])
+    variant_gid = variants[0]["node"]["id"] if variants else None
+    variant_id = variant_gid.split("/")[-1] if variant_gid else None
+    checkout_url = f"{STORE_URL}/cart/{variant_id}:1" if variant_id else None
+
     return {
         "title": node["title"],
         "handle": node["handle"],
@@ -50,6 +56,7 @@ def _node_to_product(node: dict) -> dict:
         "price": f'{price_info.get("amount", "0")} {price_info.get("currencyCode", "USD")}',
         "url": f"{STORE_URL}/products/{node['handle']}",
         "image_url": image_url,
+        "checkout_url": checkout_url,
     }
 
 
@@ -62,6 +69,9 @@ _PRODUCT_FIELDS = """
     }
     images(first: 1) {
       edges { node { url } }
+    }
+    variants(first: 1) {
+      edges { node { id } }
     }
 """
 

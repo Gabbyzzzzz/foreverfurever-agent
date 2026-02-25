@@ -15,14 +15,31 @@ load_dotenv()
 from ff_agent.knowledge import get_collection, KNOWLEDGE_DIR
 
 
+MAX_CHUNK_SIZE = 500
+
+
 def split_markdown_sections(text: str) -> list[str]:
-    """Split markdown into sections by headers. Each section includes its header."""
+    """Split markdown into sections by headers, then sub-split large sections by paragraphs."""
     sections = re.split(r"(?=^#{1,3} )", text, flags=re.MULTILINE)
     chunks = []
     for section in sections:
         section = section.strip()
-        if len(section) > 20:  # skip tiny fragments
+        if len(section) <= 20:
+            continue
+        if len(section) <= MAX_CHUNK_SIZE:
             chunks.append(section)
+        else:
+            # Split large sections by double newline (paragraphs)
+            paragraphs = section.split("\n\n")
+            current = ""
+            for para in paragraphs:
+                if current and len(current) + len(para) + 2 > MAX_CHUNK_SIZE:
+                    chunks.append(current)
+                    current = para
+                else:
+                    current = current + "\n\n" + para if current else para
+            if current and len(current) > 20:
+                chunks.append(current)
     return chunks
 
 

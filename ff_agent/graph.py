@@ -33,6 +33,7 @@ class GraphState(TypedDict):
     ui_actions: list[dict]   # dynamic buttons for frontend
     products: list[dict]     # product cards for frontend
     thread_id: str
+    viewed_handles: list[str]  # track shown products to avoid repeats
 
 
 # ==========================
@@ -143,7 +144,20 @@ def postprocess(state: GraphState) -> dict:
             ui_actions.append({"type": "quick_reply", "label": "It's a gift", "value": "It's a gift for someone"})
             ui_actions.append({"type": "quick_reply", "label": "For myself", "value": "It's for myself as a personal keepsake"})
 
-    if products:
+    # Filter out products already shown in this conversation
+    previously_viewed = set(state.get("viewed_handles", []))
+    new_products = [p for p in products if p.get("handle") not in previously_viewed]
+    # Fall back to all products if everything was already shown
+    if not new_products and products:
+        new_products = products
+    display_products = new_products[:6]
+
+    # Track all shown handles
+    new_viewed = list(
+        previously_viewed | {p.get("handle", "") for p in display_products}
+    )
+
+    if display_products:
         ui_actions.append({
             "type": "open_url",
             "label": "Browse all products",
@@ -151,8 +165,9 @@ def postprocess(state: GraphState) -> dict:
         })
 
     return {
-        "products": products[:6],
+        "products": display_products,
         "ui_actions": ui_actions,
+        "viewed_handles": new_viewed,
     }
 
 

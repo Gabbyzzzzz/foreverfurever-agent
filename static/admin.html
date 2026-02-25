@@ -4,22 +4,35 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ForeverFurEver Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --brand: #9580D6;
+      --brand-dark: #7A68B8;
+      --brand-light: #EDE9F6;
+      --text: #1a1a1a;
+      --text-muted: rgba(0,0,0,0.55);
+      --bg: #f7f6fa;
+      --white: #ffffff;
+      --border: #e8e5ef;
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f5f4; color: #1c1917; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-    .card { background: #fff; border-radius: 12px; padding: 40px; max-width: 420px; width: 90%; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    h1 { font-size: 20px; margin-bottom: 8px; }
-    .subtitle { color: #78716c; font-size: 14px; margin-bottom: 28px; }
-    label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #44403c; }
-    input { width: 100%; padding: 10px 12px; border: 1px solid #d6d3d1; border-radius: 8px; font-size: 14px; outline: none; }
-    input:focus { border-color: #a8a29e; }
-    .btn { width: 100%; margin-top: 20px; padding: 12px; background: #292524; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; }
-    .btn:hover { background: #1c1917; }
-    .btn:disabled { background: #a8a29e; cursor: not-allowed; }
+    body { font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .card { background: var(--white); border-radius: 16px; padding: 40px; max-width: 420px; width: 90%; box-shadow: 0 4px 24px rgba(149,128,214,0.12); }
+    h1 { font-size: 20px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+    h1::before { content: "✦"; color: var(--brand); }
+    .subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 28px; }
+    label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
+    input { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 14px; outline: none; font-family: inherit; transition: border-color 0.15s; }
+    input:focus { border-color: var(--brand); }
+    .btn { width: 100%; margin-top: 20px; padding: 12px; background: var(--brand); color: var(--white); border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.15s; }
+    .btn:hover { background: var(--brand-dark); }
+    .btn:disabled { background: #c4b8e8; cursor: not-allowed; }
     .result { margin-top: 20px; padding: 14px; border-radius: 8px; font-size: 13px; line-height: 1.6; display: none; }
     .result.success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
     .result.error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
-    .result.pending { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+    .result.pending { background: var(--brand-light); border: 1px solid #d4c8f0; color: var(--brand-dark); }
     .synced-list { margin-top: 8px; padding-left: 18px; }
   </style>
 </head>
