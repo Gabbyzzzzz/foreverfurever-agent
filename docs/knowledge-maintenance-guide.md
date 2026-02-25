@@ -52,7 +52,7 @@ Notion 编辑内容 → 触发同步 → Agent 使用最新知识
 
 ### 方法一：网页按钮同步（推荐）
 
-1. 在浏览器打开：`https://你的服务器地址/admin`
+1. 在浏览器打开：`https://foreverfurever-agent.onrender.com/admin`
 2. 输入管理员密码
 3. 点击 **「同步知识库」**
 4. 页面会显示同步结果（成功/跳过/出错的文档）
@@ -60,7 +60,7 @@ Notion 编辑内容 → 触发同步 → Agent 使用最新知识
 ### 方法二：命令行同步
 
 ```bash
-curl -X POST https://你的服务器地址/admin/sync-knowledge \
+curl -X POST https://foreverfurever-agent.onrender.com/admin/sync-knowledge \
   -H "Authorization: Bearer foreverfurever2026"
 ```
 
