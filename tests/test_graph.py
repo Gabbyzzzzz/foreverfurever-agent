@@ -7,7 +7,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from ff_agent.graph import postprocess
 
 
-def _make_state(ai_content, tool_products=None, user_messages=None, viewed_handles=None):
+def _make_state(ai_content, tool_products=None, user_messages=None):
     """Build a minimal GraphState dict for testing postprocess."""
     messages = []
 
@@ -23,10 +23,7 @@ def _make_state(ai_content, tool_products=None, user_messages=None, viewed_handl
 
     messages.append(AIMessage(content=ai_content))
 
-    return {
-        "messages": messages,
-        "viewed_handles": viewed_handles or [],
-    }
+    return {"messages": messages}
 
 
 # ---------- No quick reply buttons ----------
@@ -45,7 +42,7 @@ def test_no_quick_reply_buttons():
     assert "Under $100" not in labels
 
 
-# ---------- Product deduplication ----------
+# ---------- Product cards ----------
 
 def test_products_extracted_from_tool_messages():
     products = [
@@ -57,7 +54,8 @@ def test_products_extracted_from_tool_messages():
     assert len(result["products"]) == 2
 
 
-def test_previously_viewed_products_filtered():
+def test_products_show_every_turn():
+    """Products should show whenever tool returns them, even if shown before."""
     products = [
         {"title": "Eternal Glow", "handle": "eternal-glow"},
         {"title": "TravelStar", "handle": "travelstar"},
@@ -65,22 +63,16 @@ def test_previously_viewed_products_filtered():
     state = _make_state(
         "Here are our products:",
         tool_products=products,
-        viewed_handles=["eternal-glow"],
     )
     result = postprocess(state)
-    assert len(result["products"]) == 1
-    assert result["products"][0]["handle"] == "travelstar"
+    assert len(result["products"]) == 2
 
 
-def test_all_viewed_shows_nothing():
-    products = [
-        {"title": "Eternal Glow", "handle": "eternal-glow"},
-        {"title": "TravelStar", "handle": "travelstar"},
-    ]
+def test_no_products_without_tool_call():
+    """No product cards when AI responds without calling tools."""
     state = _make_state(
-        "Here are our products:",
-        tool_products=products,
-        viewed_handles=["eternal-glow", "travelstar"],
+        "The Eternal Glow is a night light.",
+        user_messages=["Tell me more about Eternal Glow"],
     )
     result = postprocess(state)
     assert len(result["products"]) == 0
@@ -120,7 +112,7 @@ def test_no_escalation_on_normal_response():
 # ---------- Edge cases ----------
 
 def test_empty_messages():
-    state = {"messages": [], "viewed_handles": []}
+    state = {"messages": []}
     result = postprocess(state)
     assert result["products"] == []
     assert result["ui_actions"] == []
@@ -129,7 +121,6 @@ def test_empty_messages():
 def test_no_ai_message():
     state = {
         "messages": [HumanMessage(content="hello")],
-        "viewed_handles": [],
     }
     result = postprocess(state)
     assert result["products"] == []

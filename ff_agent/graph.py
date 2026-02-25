@@ -34,7 +34,6 @@ class GraphState(TypedDict):
     ui_actions: list[dict]   # dynamic buttons for frontend
     products: list[dict]     # product cards for frontend
     thread_id: str
-    viewed_handles: list[str]  # track shown products to avoid repeats
 
 
 # ==========================
@@ -161,9 +160,19 @@ def postprocess(state: GraphState) -> dict:
 
     content = last_ai_msg.content or ""
 
-    # Build product cards from ToolMessage results in message history
+    # Build product cards from the LATEST tool call results in this turn.
+    # Walk backwards from the last AI message to find recent ToolMessages.
     seen_handles: set[str] = set()
-    for msg in messages:
+    last_ai_idx = len(messages) - 1
+    for i in range(last_ai_idx, -1, -1):
+        if isinstance(messages[i], AIMessage) and not messages[i].tool_calls:
+            last_ai_idx = i
+            break
+
+    for i in range(last_ai_idx, -1, -1):
+        msg = messages[i]
+        if isinstance(msg, HumanMessage):
+            break  # Stop at the user's message (only look at this turn)
         if not isinstance(msg, ToolMessage):
             continue
         try:
@@ -180,17 +189,7 @@ def postprocess(state: GraphState) -> dict:
             pass
 
     content_lower = content.lower()
-
-    # Filter out products already shown in this conversation
-    previously_viewed = set(state.get("viewed_handles", []))
-    new_products = [p for p in products if p.get("handle") not in previously_viewed]
-    # If all products were already viewed, don't re-show them
-    display_products = new_products[:6]
-
-    # Track all shown handles
-    new_viewed = list(
-        previously_viewed | {p.get("handle", "") for p in display_products}
-    )
+    display_products = products[:6]
 
     # Show "Contact Support" button when agent mentions escalation
     escalation_keywords = [
@@ -208,7 +207,6 @@ def postprocess(state: GraphState) -> dict:
     return {
         "products": display_products,
         "ui_actions": ui_actions,
-        "viewed_handles": new_viewed,
     }
 
 

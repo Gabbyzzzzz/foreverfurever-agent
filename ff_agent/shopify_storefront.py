@@ -68,7 +68,7 @@ _PRODUCT_FIELDS = """
       minVariantPrice { amount currencyCode }
     }
     images(first: 1) {
-      edges { node { url } }
+      edges { node { url(transform: {maxWidth: 400, maxHeight: 400, preferredContentType: JPG}) } }
     }
     variants(first: 1) {
       edges { node { id } }
