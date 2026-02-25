@@ -92,13 +92,13 @@ Avoid harsh chemicals or abrasive cleaners to preserve the artistic finish.
 
 ---
 
-## **Returns & Guarantees**
+## **Returns, Refunds & Guarantees**
 
-### **Q: What is your return policy?**
+### **Q: What is your return/refund policy?**
 
-Because all personalized items are custom made, they are final sale and cannot be returned for non-quality reasons.
+Because all personalized items are custom made, they are final sale and cannot be returned or refunded for non-quality reasons.
 
-However, we fully stand behind our craftsmanship.
+However, we fully stand behind our craftsmanship. If you receive a defective or damaged item, we will provide a full replacement free of charge. For refund or return inquiries, please contact support@foreverfurever.org.
 
 ---
 
