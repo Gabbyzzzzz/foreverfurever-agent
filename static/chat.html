@@ -131,6 +131,7 @@ body {
   flex-shrink: 0;
   scroll-snap-align: start;
   background: var(--white);
+  cursor: pointer;
 }
 .product-card img {
   width: 100%;
@@ -158,13 +159,13 @@ body {
 .product-card-btn {
   display: block;
   width: 100%;
-  padding: 6px;
+  padding: 8px;
   margin-top: 6px;
   border: 1.5px solid var(--brand);
   border-radius: 6px;
   background: var(--white);
   color: var(--brand);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   text-align: center;
@@ -176,13 +177,13 @@ body {
 .product-card-buy {
   display: block;
   width: 100%;
-  padding: 6px;
+  padding: 8px;
   margin-top: 4px;
   border: none;
   border-radius: 6px;
   background: var(--brand);
   color: var(--white);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   text-align: center;
@@ -390,25 +391,30 @@ function renderProducts(products) {
     var card = document.createElement("div");
     card.className = "product-card";
 
+    var productUrl = p.url || "#";
+    var safeUrl = escapeHtml(productUrl);
+    var safeHandle = escapeHtml(p.handle || "");
+
     var imgHtml = p.image_url
-      ? '<img src="' + escapeHtml(p.image_url) + '" alt="' + escapeHtml(p.title || '') + '" />'
+      ? '<a href="' + safeUrl + '" target="_blank" data-track="view_product" data-product="' + safeHandle + '"><img src="' + escapeHtml(p.image_url) + '" alt="' + escapeHtml(p.title || '') + '" /></a>'
       : '<div style="width:100%;height:120px;background:#eee;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px;">No image</div>';
 
     var priceText = p.price ? "$" + parseFloat(p.price).toFixed(2) : "";
 
-    var viewUrl = escapeHtml(p.url || "#");
-    var viewBtn = '<a class="product-card-btn" href="' + viewUrl + '" target="_blank" data-track="view_product" data-product="' + escapeHtml(p.handle || '') + '">View Details</a>';
+    var viewBtn = '<a class="product-card-btn" href="' + safeUrl + '" target="_blank" data-track="view_product" data-product="' + safeHandle + '">View Details</a>';
 
     var buyHtml = "";
     if (p.checkout_url && p.available !== false) {
-      buyHtml = '<a class="product-card-buy" href="' + escapeHtml(p.checkout_url) + '" target="_blank" data-track="buy_click" data-product="' + escapeHtml(p.handle || '') + '">Buy Now</a>';
+      buyHtml = '<a class="product-card-buy" href="' + escapeHtml(p.checkout_url) + '" target="_blank" data-track="buy_click" data-product="' + safeHandle + '">Buy Now</a>';
     }
 
     card.innerHTML =
       imgHtml +
       '<div class="product-card-body">' +
-        '<div class="product-card-title">' + escapeHtml(p.title || "Product") + '</div>' +
-        '<div class="product-card-price">' + escapeHtml(priceText) + '</div>' +
+        '<a href="' + safeUrl + '" target="_blank" style="text-decoration:none;color:inherit;" data-track="view_product" data-product="' + safeHandle + '">' +
+          '<div class="product-card-title">' + escapeHtml(p.title || "Product") + '</div>' +
+          '<div class="product-card-price">' + escapeHtml(priceText) + '</div>' +
+        '</a>' +
         viewBtn +
         buyHtml +
       '</div>';
