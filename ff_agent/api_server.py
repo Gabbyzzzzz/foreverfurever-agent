@@ -8,7 +8,7 @@ import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -141,3 +141,28 @@ def chat(req: ChatRequest):
 def feedback(req: FeedbackRequest):
     logging.info(f"Feedback: thread={req.thread_id} rating={req.rating} comment={req.comment}")
     return {"ok": True}
+
+
+@app.post("/admin/sync-knowledge")
+def sync_knowledge_endpoint(authorization: str = Header()):
+    admin_token = os.getenv("ADMIN_TOKEN")
+    if not admin_token:
+        raise HTTPException(status_code=500, detail="ADMIN_TOKEN not configured")
+
+    expected = f"Bearer {admin_token}"
+    if authorization != expected:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    from ff_agent.notion_sync import sync_knowledge as do_sync
+
+    try:
+        results = do_sync()
+        return {
+            "ok": True,
+            "synced": results["synced"],
+            "skipped": results["skipped"],
+            "errors": results["errors"],
+        }
+    except Exception as e:
+        logging.exception("Sync error")
+        raise HTTPException(status_code=500, detail=str(e))
