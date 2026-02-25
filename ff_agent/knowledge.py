@@ -18,6 +18,11 @@ def get_embedding_function():
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
         raise RuntimeError("Missing GEMINI_API_KEY or GOOGLE_API_KEY in environment")
+
+    # Force REST transport to avoid gRPC "503 Illegal metadata" on Render
+    import google.generativeai as genai
+    genai.configure(api_key=api_key, transport="rest")
+
     return GoogleGenerativeAiEmbeddingFunction(
         api_key=api_key,
         model_name="models/gemini-embedding-001",
