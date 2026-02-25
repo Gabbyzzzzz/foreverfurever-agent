@@ -71,8 +71,12 @@ body {
   font-size: 14px;
   line-height: 1.6;
   word-wrap: break-word;
-  white-space: pre-wrap;
 }
+.msg.user { white-space: pre-wrap; }
+.msg.ai strong { font-weight: 700; }
+.msg.ai em { font-style: italic; }
+.msg.ai ul { margin: 4px 0 4px 16px; padding: 0; }
+.msg.ai li { margin: 2px 0; }
 
 .user {
   align-self: flex-end;
@@ -118,8 +122,8 @@ body {
   padding: 8px 0;
   scroll-snap-type: x mandatory;
 }
-.product-cards::-webkit-scrollbar { height: 4px; }
-.product-cards::-webkit-scrollbar-thumb { background: var(--brand); border-radius: 2px; opacity: 0.4; }
+.product-cards::-webkit-scrollbar { height: 0; }
+.product-cards { scrollbar-width: none; }
 
 .product-card {
   min-width: 160px;
@@ -137,6 +141,16 @@ body {
   height: 120px;
   object-fit: cover;
   background: #f5f5f5;
+  display: block;
+}
+.product-card .img-placeholder {
+  width: 100%;
+  height: 120px;
+  background: linear-gradient(135deg, var(--brand-light) 0%, #e0d8f0 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
 }
 .product-card-body { padding: 8px 10px; }
 .product-card-title {
@@ -317,6 +331,25 @@ function escapeHtml(text) {
   return d.innerHTML;
 }
 
+// ---- Simple Markdown renderer (safe — escapes first, then applies formatting) ----
+function renderMarkdown(raw) {
+  var text = escapeHtml(raw);
+  // Bold: **text**
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Italic: *text* (but not inside bold)
+  text = text.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+  // Bullet lists: lines starting with * or -
+  text = text.replace(/^[\*\-]\s+(.+)$/gm, '<li>$1</li>');
+  text = text.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+  // Line breaks
+  text = text.replace(/\n/g, '<br>');
+  // Clean up <br> inside <ul>
+  text = text.replace(/<br><ul>/g, '<ul>');
+  text = text.replace(/<\/ul><br>/g, '</ul>');
+  text = text.replace(/<\/li><br><li>/g, '</li><li>');
+  return text;
+}
+
 // ---- Analytics / Conversion Tracking ----
 function trackEvent(event, data) {
   try {
@@ -346,7 +379,11 @@ function restoreHistory() {
     history.forEach(function(entry) {
       var div = document.createElement("div");
       div.className = "msg " + entry.role + " restored";
-      div.textContent = entry.text;
+      if (entry.role === "ai") {
+        div.innerHTML = renderMarkdown(entry.text);
+      } else {
+        div.textContent = entry.text;
+      }
       messagesEl.appendChild(div);
     });
     messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -358,7 +395,11 @@ function restoreHistory() {
 function addMessage(text, cls) {
   var div = document.createElement("div");
   div.className = "msg " + cls;
-  div.textContent = text;
+  if (cls === "ai") {
+    div.innerHTML = renderMarkdown(text);
+  } else {
+    div.textContent = text;
+  }
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   return div;
@@ -394,9 +435,10 @@ function renderProducts(products) {
     var safeUrl = escapeHtml(productUrl);
     var safeHandle = escapeHtml(p.handle || "");
 
+    var placeholderHtml = '<div class="img-placeholder">🐾</div>';
     var imgHtml = p.image_url
-      ? '<a href="' + safeUrl + '" target="_blank" data-track="view_product" data-product="' + safeHandle + '"><img src="' + escapeHtml(p.image_url) + '" alt="' + escapeHtml(p.title || '') + '" /></a>'
-      : '<div style="width:100%;height:120px;background:#eee;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px;">No image</div>';
+      ? '<a href="' + safeUrl + '" target="_blank" data-track="view_product" data-product="' + safeHandle + '"><img src="' + escapeHtml(p.image_url) + '" alt="' + escapeHtml(p.title || '') + '" onerror="this.parentElement.innerHTML=\'<div class=img-placeholder>🐾</div>\'" /></a>'
+      : placeholderHtml;
 
     var priceText = p.price ? "$" + parseFloat(p.price).toFixed(2) : "";
 
@@ -549,6 +591,10 @@ async function sendMessage(text) {
       }
     }
 
+    // Convert final text to rendered markdown
+    if (aiDiv && aiText) {
+      aiDiv.innerHTML = renderMarkdown(aiText);
+    }
     if (aiText) saveHistory("ai", aiText);
     if (!aiDiv) hideTyping();
 
@@ -562,7 +608,7 @@ async function sendMessage(text) {
       });
       var data = await resp.json();
       if (data.content) {
-        addMessage(data.content, "ai");
+        var aiMsg = addMessage(data.content, "ai");
         saveHistory("ai", data.content);
       }
       if (data.products && data.products.length > 0) renderProducts(data.products);

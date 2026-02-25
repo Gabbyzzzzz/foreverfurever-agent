@@ -175,7 +175,11 @@ def postprocess(state: GraphState) -> dict:
         })
 
     # Show "Contact Support" button when agent mentions escalation
-    escalation_keywords = ["support@foreverfurever.org", "support team", "contact us"]
+    escalation_keywords = [
+        "support@foreverfurever.org", "support team", "contact us",
+        "contact support", "customer support", "email us", "reach out",
+        "contact our", "refund", "return policy",
+    ]
     if any(kw in content_lower for kw in escalation_keywords):
         ui_actions.append({
             "type": "open_url",
