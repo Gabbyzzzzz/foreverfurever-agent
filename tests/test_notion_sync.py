@@ -165,3 +165,50 @@ def test_sync_endpoint_rejects_bad_token(monkeypatch):
         headers={"Authorization": "Bearer wrong-token"},
     )
     assert resp.status_code == 401
+
+
+def test_sync_endpoint_returns_started(monkeypatch):
+    monkeypatch.setenv("ADMIN_TOKEN", "test-secret")
+    from ff_agent import api_server
+    # Reset sync status
+    api_server._sync_status["running"] = False
+    api_server._sync_status["last_result"] = None
+    client = TestClient(api_server.app)
+    resp = client.post(
+        "/admin/sync-knowledge",
+        headers={"Authorization": "Bearer test-secret"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] in ("started", "already_running")
+    # Clean up: wait briefly for thread to start
+    import time
+    time.sleep(0.5)
+    api_server._sync_status["running"] = False
+
+
+def test_sync_status_endpoint(monkeypatch):
+    monkeypatch.setenv("ADMIN_TOKEN", "test-secret")
+    from ff_agent import api_server
+    api_server._sync_status["running"] = False
+    api_server._sync_status["last_result"] = {"ok": True, "synced": ["FAQ.md"], "skipped": [], "errors": []}
+    client = TestClient(api_server.app)
+    resp = client.get(
+        "/admin/sync-status",
+        headers={"Authorization": "Bearer test-secret"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["running"] is False
+    assert data["last_result"]["ok"] is True
+
+
+def test_sync_status_rejects_bad_token(monkeypatch):
+    monkeypatch.setenv("ADMIN_TOKEN", "test-secret")
+    from ff_agent.api_server import app
+    client = TestClient(app)
+    resp = client.get(
+        "/admin/sync-status",
+        headers={"Authorization": "Bearer wrong"},
+    )
+    assert resp.status_code == 401

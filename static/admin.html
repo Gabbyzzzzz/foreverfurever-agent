@@ -19,6 +19,7 @@
     .result { margin-top: 20px; padding: 14px; border-radius: 8px; font-size: 13px; line-height: 1.6; display: none; }
     .result.success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
     .result.error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+    .result.pending { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
     .synced-list { margin-top: 8px; padding-left: 18px; }
   </style>
 </head>
@@ -36,22 +37,60 @@
   </div>
 
   <script>
-    // Remember token in session
     const tokenInput = document.getElementById('token');
+    const btn = document.getElementById('syncBtn');
+    const result = document.getElementById('result');
     const saved = sessionStorage.getItem('admin_token');
     if (saved) tokenInput.value = saved;
+
+    function showResult(cls, html) {
+      result.className = 'result ' + cls;
+      result.innerHTML = html;
+      result.style.display = 'block';
+    }
+
+    async function pollStatus(token) {
+      for (let i = 0; i < 60; i++) {
+        await new Promise(r => setTimeout(r, 3000));
+        try {
+          const resp = await fetch('/admin/sync-status', {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          const data = await resp.json();
+
+          if (!data.running && data.last_result) {
+            const r = data.last_result;
+            if (r.ok) {
+              let html = '<strong>同步成功</strong>';
+              if (r.synced && r.synced.length) {
+                html += '<ul class="synced-list">' + r.synced.map(t => '<li>' + t + '</li>').join('') + '</ul>';
+              }
+              if (r.skipped && r.skipped.length) {
+                html += '<br>跳过: ' + r.skipped.join(', ');
+              }
+              showResult('success', html);
+            } else {
+              showResult('error', '同步失败: ' + (r.error || '未知错误'));
+            }
+            btn.disabled = false;
+            btn.textContent = '同步知识库';
+            return;
+          }
+        } catch (e) { /* keep polling */ }
+      }
+      showResult('error', '同步超时，请刷新页面后重试');
+      btn.disabled = false;
+      btn.textContent = '同步知识库';
+    }
 
     async function doSync() {
       const token = tokenInput.value.trim();
       if (!token) { tokenInput.focus(); return; }
 
       sessionStorage.setItem('admin_token', token);
-
-      const btn = document.getElementById('syncBtn');
-      const result = document.getElementById('result');
       btn.disabled = true;
       btn.textContent = '同步中...';
-      result.style.display = 'none';
+      showResult('pending', '正在从 Notion 拉取内容并更新索引，请稍等...');
 
       try {
         const resp = await fetch('/admin/sync-knowledge', {
@@ -60,31 +99,23 @@
         });
         const data = await resp.json();
 
-        if (resp.ok && data.ok) {
-          let html = '<strong>同步成功</strong>';
-          if (data.synced && data.synced.length) {
-            html += '<ul class="synced-list">' + data.synced.map(t => '<li>' + t + '</li>').join('') + '</ul>';
-          }
-          if (data.skipped && data.skipped.length) {
-            html += '<br>跳过: ' + data.skipped.join(', ');
-          }
-          result.className = 'result success';
-          result.innerHTML = html;
-        } else {
-          result.className = 'result error';
-          result.textContent = data.detail || '同步失败，请检查密码是否正确';
+        if (!resp.ok) {
+          showResult('error', data.detail || '请检查密码是否正确');
+          btn.disabled = false;
+          btn.textContent = '同步知识库';
+          return;
+        }
+
+        if (data.status === 'started' || data.status === 'already_running') {
+          pollStatus(token);
         }
       } catch (e) {
-        result.className = 'result error';
-        result.textContent = '网络错误: ' + e.message;
+        showResult('error', '网络错误: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = '同步知识库';
       }
-
-      result.style.display = 'block';
-      btn.disabled = false;
-      btn.textContent = '同步知识库';
     }
 
-    // Enter key triggers sync
     tokenInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSync(); });
   </script>
 </body>

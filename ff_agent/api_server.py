@@ -149,6 +149,11 @@ def feedback(req: FeedbackRequest):
     return {"ok": True}
 
 
+import threading
+
+_sync_status = {"running": False, "last_result": None}
+
+
 @app.post("/admin/sync-knowledge")
 def sync_knowledge_endpoint(authorization: str = Header()):
     admin_token = os.getenv("ADMIN_TOKEN")
@@ -159,16 +164,37 @@ def sync_knowledge_endpoint(authorization: str = Header()):
     if authorization != expected:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    from ff_agent.notion_sync import sync_knowledge as do_sync
+    if _sync_status["running"]:
+        return {"ok": True, "status": "already_running", "message": "同步正在进行中，请稍后查看结果"}
 
-    try:
-        results = do_sync()
-        return {
-            "ok": True,
-            "synced": results["synced"],
-            "skipped": results["skipped"],
-            "errors": results["errors"],
-        }
-    except Exception as e:
-        logging.exception("Sync error")
-        raise HTTPException(status_code=500, detail=str(e))
+    def run_sync():
+        from ff_agent.notion_sync import sync_knowledge as do_sync
+        _sync_status["running"] = True
+        try:
+            results = do_sync()
+            _sync_status["last_result"] = {
+                "ok": True,
+                "synced": results["synced"],
+                "skipped": results["skipped"],
+                "errors": results["errors"],
+            }
+        except Exception as e:
+            logging.exception("Sync error")
+            _sync_status["last_result"] = {"ok": False, "error": str(e)}
+        finally:
+            _sync_status["running"] = False
+
+    threading.Thread(target=run_sync, daemon=True).start()
+    return {"ok": True, "status": "started", "message": "同步已开始，请稍后查看结果"}
+
+
+@app.get("/admin/sync-status")
+def sync_status(authorization: str = Header()):
+    admin_token = os.getenv("ADMIN_TOKEN")
+    if not admin_token or authorization != f"Bearer {admin_token}":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    return {
+        "running": _sync_status["running"],
+        "last_result": _sync_status["last_result"],
+    }
