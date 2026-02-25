@@ -1,8 +1,9 @@
 fastapi
 uvicorn
 python-dotenv
-openai
 langgraph
-langchain-openai
+langchain-google-genai
+google-generativeai
+chromadb
 requests
-
+aiosqlite
