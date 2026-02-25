@@ -21,6 +21,7 @@ from typing_extensions import TypedDict
 
 from ff_agent.prompts import SYSTEM_PROMPT
 from ff_agent.tools import ALL_TOOLS
+from ff_agent.knowledge import search_knowledge as _search_kb
 
 
 # ==========================
@@ -40,14 +41,23 @@ class GraphState(TypedDict):
 # Node: preprocess
 # ==========================
 
+_POLICY_KEYWORDS = [
+    "refund", "return", "shipping", "delivery", "care", "customs",
+    "damaged", "lost", "engraving", "personali", "customiz", "how long",
+    "when will", "return policy", "退款", "退货", "运费", "发货", "快递",
+]
+
+
 def preprocess(state: GraphState) -> dict:
-    """Detect language and ensure system prompt is present."""
+    """Detect language, ensure system prompt, and auto-inject knowledge for policy questions."""
     messages = state.get("messages", [])
 
     # Detect language from the last human message
     language = "en"
+    last_human_text = ""
     for msg in reversed(messages):
         if isinstance(msg, HumanMessage):
+            last_human_text = msg.content
             if any("\u4e00" <= ch <= "\u9fff" for ch in msg.content):
                 language = "zh"
             break
@@ -57,6 +67,19 @@ def preprocess(state: GraphState) -> dict:
     new_messages = []
     if not has_system:
         new_messages.append(SystemMessage(content=SYSTEM_PROMPT))
+
+    # Auto-inject knowledge for policy/FAQ questions so the AI always has context
+    query_lower = last_human_text.lower()
+    if any(kw in query_lower for kw in _POLICY_KEYWORDS):
+        try:
+            results = _search_kb(last_human_text)
+            if results:
+                kb_text = "\n\n".join(results)
+                new_messages.append(SystemMessage(
+                    content=f"[Knowledge Base Results]\n{kb_text}\n\nUse the above information to answer the customer's question."
+                ))
+        except Exception:
+            pass
 
     return {
         "language": language,
