@@ -74,7 +74,7 @@ DATA_DIR = PROJECT_ROOT / "data"
 
 DATA_DIR.mkdir(exist_ok=True)
 
-API_VERSION = "1.2.0"
+API_VERSION = "1.3.0"
 
 MAX_MESSAGE_LENGTH = 1000
 
