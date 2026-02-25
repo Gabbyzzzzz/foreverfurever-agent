@@ -49,52 +49,18 @@ _POLICY_KEYWORDS = [
 
 
 def preprocess(state: GraphState) -> dict:
-    """Detect language, ensure system prompt, and auto-inject knowledge for policy questions."""
+    """Detect language from the latest user message."""
     messages = state.get("messages", [])
 
     # Detect language from the last human message
     language = "en"
-    last_human_text = ""
     for msg in reversed(messages):
         if isinstance(msg, HumanMessage):
-            last_human_text = msg.content
             if any("\u4e00" <= ch <= "\u9fff" for ch in msg.content):
                 language = "zh"
             break
 
-    # Ensure system prompt is the first message
-    has_system = any(isinstance(m, SystemMessage) for m in messages)
-    new_messages = []
-    if not has_system:
-        new_messages.append(SystemMessage(content=SYSTEM_PROMPT))
-
-    # Auto-inject knowledge for policy/FAQ questions so the AI always has context
-    query_lower = last_human_text.lower()
-    if any(kw in query_lower for kw in _POLICY_KEYWORDS):
-        # Map common intents to better search queries
-        search_query = last_human_text
-        if any(kw in query_lower for kw in ["refund", "return", "退款", "退货"]):
-            search_query = "return refund policy"
-        elif any(kw in query_lower for kw in ["shipping", "delivery", "how long", "when will", "运费", "发货"]):
-            search_query = "shipping delivery time"
-        elif any(kw in query_lower for kw in ["damaged", "broken", "wrong"]):
-            search_query = "damaged item replacement"
-        elif any(kw in query_lower for kw in ["engraving", "personali", "customiz"]):
-            search_query = "personalization engraving customization"
-        try:
-            results = _search_kb(search_query)
-            if results:
-                kb_text = "\n\n".join(results)
-                new_messages.append(SystemMessage(
-                    content=f"[Knowledge Base Results]\n{kb_text}\n\nUse the above information to answer the customer's question."
-                ))
-        except Exception:
-            pass
-
-    return {
-        "language": language,
-        "messages": new_messages,
-    }
+    return {"language": language}
 
 
 # ==========================
@@ -119,10 +85,57 @@ def _get_agent():
     return _agent_with_tools
 
 
+def _build_kb_context(user_text: str) -> str | None:
+    """Search knowledge base for policy questions, return context string or None."""
+    query_lower = user_text.lower()
+    if not any(kw in query_lower for kw in _POLICY_KEYWORDS):
+        return None
+    # Map common intents to better search queries
+    search_query = user_text
+    if any(kw in query_lower for kw in ["refund", "return", "退款", "退货"]):
+        search_query = "return refund policy"
+    elif any(kw in query_lower for kw in ["shipping", "delivery", "how long", "when will", "运费", "发货"]):
+        search_query = "shipping delivery time"
+    elif any(kw in query_lower for kw in ["damaged", "broken", "wrong"]):
+        search_query = "damaged item replacement"
+    elif any(kw in query_lower for kw in ["engraving", "personali", "customiz"]):
+        search_query = "personalization engraving customization"
+    try:
+        results = _search_kb(search_query)
+        if results:
+            return "\n\n".join(results)
+    except Exception:
+        pass
+    return None
+
+
 def agent_node(state: GraphState) -> dict:
-    """Call Gemini with conversation history and tools."""
+    """Call Gemini with conversation history, system prompt, and KB context.
+
+    We build the message list here (not in preprocess) to guarantee correct
+    ordering: SystemMessage first, then conversation history.
+    """
     messages = state["messages"]
-    response = _get_agent().invoke(messages)
+
+    # Build the system prompt, optionally enriched with KB results
+    prompt = SYSTEM_PROMPT
+    last_human_text = ""
+    for msg in reversed(messages):
+        if isinstance(msg, HumanMessage):
+            last_human_text = msg.content
+            break
+
+    kb_context = _build_kb_context(last_human_text)
+    if kb_context:
+        prompt += f"\n\n[Knowledge Base — use this to answer the current question]\n{kb_context}"
+
+    # Ensure correct order: system prompt first, then conversation
+    llm_messages = [SystemMessage(content=prompt)]
+    for msg in messages:
+        if not isinstance(msg, SystemMessage):
+            llm_messages.append(msg)
+
+    response = _get_agent().invoke(llm_messages)
     return {"messages": [response]}
 
 
