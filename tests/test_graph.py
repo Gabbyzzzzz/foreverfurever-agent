@@ -86,8 +86,10 @@ def test_all_viewed_shows_nothing():
     assert len(result["products"]) == 0
 
 
-def test_browse_all_button_only_with_products():
-    state = _make_state("I can help with that!")
+def test_no_browse_all_button():
+    """Browse all products button was removed."""
+    products = [{"title": "Eternal Glow", "handle": "eternal-glow", "price": "49.99"}]
+    state = _make_state("Here are our products:", tool_products=products)
     result = postprocess(state)
     urls = [a.get("url", "") for a in result["ui_actions"]]
     assert "https://foreverfurever.org/collections/all" not in urls

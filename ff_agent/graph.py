@@ -192,13 +192,6 @@ def postprocess(state: GraphState) -> dict:
         previously_viewed | {p.get("handle", "") for p in display_products}
     )
 
-    if display_products:
-        ui_actions.append({
-            "type": "open_url",
-            "label": "Browse all products",
-            "url": "https://foreverfurever.org/collections/all",
-        })
-
     # Show "Contact Support" button when agent mentions escalation
     escalation_keywords = [
         "support@foreverfurever.org", "support team", "contact us",
