@@ -20,9 +20,26 @@ MAX_CHUNK_SIZE = 500
 _chunks: list[dict] = []
 
 
+_STOP_WORDS = frozenset([
+    "i", "me", "my", "we", "our", "you", "your", "it", "its", "the", "a", "an",
+    "is", "am", "are", "was", "were", "be", "been", "being", "have", "has", "had",
+    "do", "does", "did", "will", "would", "shall", "should", "may", "might",
+    "can", "could", "to", "of", "in", "for", "on", "with", "at", "by", "from",
+    "as", "into", "about", "that", "this", "these", "those", "and", "but", "or",
+    "not", "no", "so", "if", "then", "than", "too", "very", "just", "also",
+    "what", "how", "when", "where", "who", "which", "want", "need", "like",
+    "please", "tell", "know", "get", "got", "some", "any",
+])
+
+
 def _tokenize(text: str) -> list[str]:
     """Lowercase and split on non-alphanumeric (supports CJK)."""
     return re.findall(r"[a-z0-9\u4e00-\u9fff]+", text.lower())
+
+
+def _tokenize_query(text: str) -> list[str]:
+    """Tokenize a search query, removing stop words."""
+    return [t for t in _tokenize(text) if t not in _STOP_WORDS]
 
 
 def _split_markdown_sections(text: str) -> list[str]:
@@ -110,7 +127,7 @@ def search_knowledge(query: str, category: str = "all", n_results: int = 3) -> l
     if not candidates:
         return [f"No knowledge found for category: {category}"]
 
-    query_tokens = _tokenize(query)
+    query_tokens = _tokenize_query(query)
     if not query_tokens:
         return [c["text"] for c in candidates[:n_results]]
 

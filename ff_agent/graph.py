@@ -71,8 +71,18 @@ def preprocess(state: GraphState) -> dict:
     # Auto-inject knowledge for policy/FAQ questions so the AI always has context
     query_lower = last_human_text.lower()
     if any(kw in query_lower for kw in _POLICY_KEYWORDS):
+        # Map common intents to better search queries
+        search_query = last_human_text
+        if any(kw in query_lower for kw in ["refund", "return", "退款", "退货"]):
+            search_query = "return refund policy"
+        elif any(kw in query_lower for kw in ["shipping", "delivery", "how long", "when will", "运费", "发货"]):
+            search_query = "shipping delivery time"
+        elif any(kw in query_lower for kw in ["damaged", "broken", "wrong"]):
+            search_query = "damaged item replacement"
+        elif any(kw in query_lower for kw in ["engraving", "personali", "customiz"]):
+            search_query = "personalization engraving customization"
         try:
-            results = _search_kb(last_human_text)
+            results = _search_kb(search_query)
             if results:
                 kb_text = "\n\n".join(results)
                 new_messages.append(SystemMessage(
