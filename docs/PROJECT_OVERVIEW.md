@@ -2,11 +2,16 @@
 
 ## 1. What This Is
 
-ForeverFurEver Agent is an **AI agent** — not a scripted chatbot — for [foreverfurever.org](https://foreverfurever.org), a pet memorial products store on Shopify. It is embedded as a conversational widget on the storefront, autonomously helping visitors find the right memorial product while being sensitive to the emotional context of pet loss.
+ForeverFurEver Agent is an **AI-powered shopping assistant** for [foreverfurever.org](https://foreverfurever.org), a pet memorial products store on Shopify. It is embedded as a conversational widget on the storefront, helping visitors find the right memorial product while being sensitive to the emotional context of pet loss.
 
-The distinction matters: a chatbot follows predefined flows or generates responses from a prompt. An agent **reasons, decides, and acts**. ForeverFurEver Agent autonomously decides when to query the Shopify product catalog, when to search the knowledge base, when to ask the customer a clarifying question, and when to escalate to human support — all through LangGraph's state machine orchestration and Gemini's native function calling.
+Core capabilities:
 
-**The core job:** Turn a grieving pet owner's vague intent ("I want something to remember my cat") into a confident purchase — through autonomous product discovery, policy lookup, and emotionally appropriate guidance — without pressure, without hallucinated information, and without requiring a human support agent for 90%+ of inquiries.
+- **Autonomous reasoning** — Decides when to query the Shopify product catalog, when to search the knowledge base, when to ask a clarifying question, and when to escalate to human support
+- **Tool orchestration** — Coordinates multiple tools (product search, knowledge lookup, product details) through LangGraph's state machine, with single or multi-round tool calls
+- **Emotional awareness** — System prompt designed for warmth, empathy, and restraint in a grief-sensitive context
+- **Bilingual** — Automatically detects and switches between English and Chinese
+
+**The core job:** Turn a grieving pet owner's vague intent ("I want something to remember my cat") into a confident purchase — through intelligent product discovery, policy lookup, and emotionally appropriate guidance — without pressure, without hallucinated information, and without requiring a human support agent for 90%+ of inquiries.
 
 | | |
 |---|---|
@@ -21,11 +26,11 @@ The distinction matters: a chatbot follows predefined flows or generates respons
 
 ## 2. Why It Exists
 
-Pet memorial is an emotionally sensitive purchase. Customers don't browse casually — they arrive in grief, often unsure what they need. A traditional product page with specs and "Add to Cart" doesn't serve them well. And a rule-based FAQ bot can't handle the nuance of "I just lost my cat and I don't know what I want."
+Pet memorial is an emotionally sensitive purchase. Customers don't browse casually — they arrive in grief, often unsure what they need. A traditional product page with specs and "Add to Cart" doesn't serve them well, and queries like "I just lost my cat and I don't know what I want" need a smarter approach.
 
-An agent — one that can reason about the customer's intent, autonomously search the right tools, and respond with emotional intelligence — fills this gap:
-- **Autonomous product discovery** — Decides which tools to call based on intent: product search, knowledge lookup, or both. No predefined decision trees.
-- **Emotional safety** — Warm tone, never pushy, never inappropriately cheerful. Trained via system prompt for grief-sensitive interaction.
+ForeverFurEver Agent fills this gap:
+- **Intelligent product discovery** — Decides which tools to call based on intent: product search, knowledge lookup, or both
+- **Emotional safety** — Warm tone, never pushy, never inappropriately cheerful. System prompt designed for grief-sensitive interaction
 - **Instant policy answers** — Shipping times, return policies, customization options without waiting for email support
 - **Bilingual** — Automatically detects and switches to Chinese, reflecting the store's customer base
 - **Escalation judgment** — Knows when to hand off to human support (refund requests, damaged items) vs. when it can handle the inquiry itself
@@ -354,8 +359,7 @@ ForeverFurEver-Agent/
 │   ├── tools.py               # LangChain tool wrappers (search_products, search_knowledge, etc.)
 │   ├── shopify_storefront.py  # Shopify Storefront GraphQL client
 │   ├── knowledge.py           # In-memory TF-IDF knowledge search
-│   ├── notion_sync.py         # Notion → markdown sync (REST API)
-│   └── index_knowledge.py     # (Legacy) ChromaDB indexing, no longer used
+│   └── notion_sync.py         # Notion → markdown sync (REST API)
 ├── knowledge/                 # Markdown knowledge files (synced from Notion)
 │   ├── FAQ.md
 │   ├── BrandStory–AboutForeverFurEver.md
@@ -379,8 +383,7 @@ ForeverFurEver-Agent/
 ├── render.yaml                # Render deployment blueprint
 ├── requirements.txt           # Python dependencies
 └── docs/
-    ├── PROJECT_OVERVIEW.md    # This document
-    └── plans/                 # Design documents and implementation plans
+    └── PROJECT_OVERVIEW.md    # This document
 ```
 
 ---

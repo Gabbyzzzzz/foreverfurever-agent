@@ -1,79 +1,66 @@
-# ForeverFurEver AI Shopping Agent
-Try it: https://foreverfurever-agent.onrender.com/
+# ForeverFurEver Agent
 
-An AI-powered conversational shopping assistant for a Shopify-based pet memorial store.
+AI-powered shopping assistant for [foreverfurever.org](https://foreverfurever.org), a Shopify-based pet memorial products store.
 
-## Features
+**Live:** https://foreverfurever-agent.onrender.com
 
-- LLM-driven product recommendation (Gemini 2.0 Flash)
-- Real-time Shopify Storefront API integration
-- ChromaDB knowledge base (brand info, policies, FAQ)
-- LangGraph agent with autonomous tool calling
-- Product cards, dynamic actions, bilingual (EN/ZH)
+## What It Does
+
+- Conversational product discovery with emotional awareness (pet loss context)
+- Real-time Shopify product search via Storefront GraphQL API
+- Knowledge base search (FAQ, brand story, product details, care guides)
+- Bilingual support (English / Chinese, auto-detected)
+- SSE streaming with product cards, action buttons, and markdown rendering
 
 ## Tech Stack
 
-- FastAPI + Uvicorn
-- LangGraph + LangChain
-- Gemini 2.0 Flash (LLM) + Gemini Embedding (vectorization)
-- ChromaDB (knowledge retrieval)
-- Shopify Storefront GraphQL API
-- SQLite (conversation persistence)
-- Vanilla JS frontend (Shopify widget-ready)
+- **Backend:** FastAPI + Uvicorn
+- **Agent:** LangGraph (StateGraph) with autonomous tool calling
+- **LLM:** Google Gemini 2.0 Flash
+- **Knowledge:** TF-IDF search over Notion-synced markdown files
+- **Products:** Shopify Storefront GraphQL API (read-only)
+- **Frontend:** Vanilla HTML/JS chat widget (standalone + Shopify embed)
+- **Deploy:** Render
 
 ## Quick Start
 
-### 1. Clone
-
 ```bash
+# Clone and setup
 git clone <your-repo>
 cd ForeverFurEver-Agent
-```
+cp .env.example .env   # Fill in API keys
 
-### 2. Setup environment
-
-```bash
-cp .env.example .env
-```
-
-Fill in your `.env`:
-
-```
-GOOGLE_API_KEY=your_gemini_api_key
-SHOPIFY_STORE_DOMAIN=your-store.myshopify.com
-SHOPIFY_STOREFRONT_TOKEN=your_storefront_token
-```
-
-### 3. Install dependencies
-
-```bash
+# Install and run
 pip install -r requirements.txt
-```
-
-### 4. Index knowledge base
-
-```bash
-python -m ff_agent.index_knowledge
-```
-
-### 5. Run
-
-```bash
-python -m ff_agent.api_server
+python start.py
 ```
 
 Open http://127.0.0.1:8000
 
+### Environment Variables
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `GOOGLE_API_KEY` | Yes | Gemini 2.0 Flash |
+| `SHOPIFY_STORE_DOMAIN` | Yes | Storefront API endpoint |
+| `SHOPIFY_STOREFRONT_TOKEN` | Yes | Storefront API token |
+| `NOTION_TOKEN` | For sync | Notion integration token |
+| `NOTION_DATABASE_ID` | For sync | Notion knowledge database ID |
+| `ADMIN_TOKEN` | For sync | Admin dashboard auth |
+
+## Tests
+
+```bash
+pytest tests/ -v
+```
+
 ## Deploy to Render
 
 1. Push to GitHub
-2. Go to [Render Dashboard](https://dashboard.render.com/) → **New** → **Blueprint**
-3. Connect your repo — Render will detect `render.yaml`
-4. Set environment variables:
-   - `GOOGLE_API_KEY` — Gemini API key from [Google AI Studio](https://aistudio.google.com/)
-   - `SHOPIFY_STORE_DOMAIN` — e.g. `your-store.myshopify.com`
-   - `SHOPIFY_STOREFRONT_TOKEN` — Shopify Storefront Access Token
-5. Deploy. The startup script automatically indexes the knowledge base before starting the server.
+2. Render Dashboard → **New** → **Blueprint** → connect repo (detects `render.yaml`)
+3. Set environment variables in Render dashboard
+4. Deploy — `start.py` preloads knowledge then starts Uvicorn
 
-Optional env vars:
-- `CORS_EXTRA_ORIGINS` — comma-separated extra allowed origins (e.g. your Render URL)
+## Docs
+
+- [Project Overview](docs/PROJECT_OVERVIEW.md)
