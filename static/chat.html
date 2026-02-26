@@ -131,13 +131,16 @@ body {
   40% { transform: translateY(-6px); }
 }
 
+/* Product area — fixed zone between messages and input */
+#product-area { border-top: 1px solid var(--border); }
+#product-area:empty { display: none; border: none; }
+
 /* Product cards */
 .product-cards {
   display: flex;
   gap: 10px;
   overflow-x: auto;
-  padding: 8px 20px;
-  margin: 4px -20px;
+  padding: 10px 20px;
   scroll-snap-type: x mandatory;
   align-items: flex-start;
   -webkit-overflow-scrolling: touch;
@@ -348,6 +351,7 @@ body {
     </button>
   </div>
   <div id="messages"></div>
+  <div id="product-area"></div>
   <div id="actions"></div>
   <div id="input-area">
     <input id="input" placeholder="Ask me anything..." maxlength="1000" />
@@ -362,6 +366,7 @@ var FALLBACK_URL = BASE_URL + "/chat";
 var TRACK_URL = BASE_URL + "/track";
 
 var messagesEl = document.getElementById("messages");
+var productAreaEl = document.getElementById("product-area");
 var actionsEl = document.getElementById("actions");
 var inputEl = document.getElementById("input");
 var sendBtn = document.getElementById("send");
@@ -472,9 +477,13 @@ function hideTyping() {
 }
 
 function clearActions() { actionsEl.innerHTML = ""; }
+function clearProducts() { productAreaEl.innerHTML = ""; }
 
 function renderProducts(products) {
   if (!products || products.length === 0) return;
+
+  // Clear previous products and show new ones in the fixed area
+  productAreaEl.innerHTML = "";
 
   var container = document.createElement("div");
   container.className = "product-cards";
@@ -516,15 +525,7 @@ function renderProducts(products) {
     trackEvent("product_impression", { handle: p.handle, title: p.title });
   });
 
-  messagesEl.appendChild(container);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
-
-  // Re-scroll after images load (images load async, may change height)
-  container.querySelectorAll("img").forEach(function(img) {
-    img.addEventListener("load", function() {
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-    });
-  });
+  productAreaEl.appendChild(container);
 }
 
 function renderActions(actions) {
@@ -586,7 +587,7 @@ function showStarterChips() {
 }
 
 // ---- Click tracking for product cards (event delegation) ----
-messagesEl.addEventListener("click", function(e) {
+productAreaEl.addEventListener("click", function(e) {
   var el = e.target.closest("[data-track]");
   if (el) {
     trackEvent(el.getAttribute("data-track"), {
@@ -610,6 +611,7 @@ async function sendMessage(text) {
   addMessage(text, "user");
   saveHistory("user", text);
   inputEl.value = "";
+  clearProducts();
   clearActions();
   showTyping();
   sendBtn.disabled = true;
@@ -732,6 +734,7 @@ document.getElementById("clear-btn").onclick = function() {
 
   // Clear UI
   messagesEl.innerHTML = "";
+  clearProducts();
   clearActions();
   sending = false;
   sendBtn.disabled = false;
