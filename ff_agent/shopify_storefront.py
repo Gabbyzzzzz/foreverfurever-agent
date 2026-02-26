@@ -84,7 +84,9 @@ def search_products(query: str, max_results: int = 6) -> list[dict]:
     results: list[dict] = []
 
     if query_text:
-        q = f'title:*{query_text}* OR product_type:*{query_text}* OR tag:*{query_text}*'
+        # Use plain text search so Shopify searches all indexed fields
+        # (title, description, tags, product_type, vendor, etc.)
+        q = query_text
         gql = f"""
         query SearchProducts($q: String!, $first: Int!) {{
           products(first: $first, query: $q, sortKey: UPDATED_AT, reverse: true) {{
@@ -96,8 +98,10 @@ def search_products(query: str, max_results: int = 6) -> list[dict]:
         for edge in data.get("products", {}).get("edges", []):
             results.append(_node_to_product(edge["node"]))
 
-    # Fallback: return latest products
-    if not results:
+    # Supplement with latest products if search returned few results.
+    # This ensures the AI always sees the full catalog for small stores,
+    # while larger stores still benefit from search filtering.
+    if len(results) < max_results:
         gql = f"""
         query LatestProducts($first: Int!) {{
           products(first: $first, sortKey: UPDATED_AT, reverse: true) {{
@@ -106,8 +110,12 @@ def search_products(query: str, max_results: int = 6) -> list[dict]:
         }}
         """
         data = storefront_query(gql, {"first": max_results})
+        seen_handles = {r["handle"] for r in results}
         for edge in data.get("products", {}).get("edges", []):
-            results.append(_node_to_product(edge["node"]))
+            p = _node_to_product(edge["node"])
+            if p["handle"] not in seen_handles:
+                results.append(p)
+                seen_handles.add(p["handle"])
 
     return results
 
