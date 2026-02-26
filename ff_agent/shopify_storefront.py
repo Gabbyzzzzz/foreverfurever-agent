@@ -52,6 +52,9 @@ def _node_to_product(node: dict) -> dict:
     return {
         "title": node["title"],
         "handle": node["handle"],
+        "description": node.get("description", ""),
+        "product_type": node.get("productType", ""),
+        "tags": node.get("tags", []),
         "available": node.get("availableForSale", False),
         "price": f'{price_info.get("amount", "0")} {price_info.get("currencyCode", "USD")}',
         "url": f"{STORE_URL}/products/{node['handle']}",
@@ -63,6 +66,9 @@ def _node_to_product(node: dict) -> dict:
 _PRODUCT_FIELDS = """
     title
     handle
+    description
+    productType
+    tags
     availableForSale
     priceRange {
       minVariantPrice { amount currencyCode }
