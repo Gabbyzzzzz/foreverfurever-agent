@@ -135,6 +135,30 @@ body {
 #product-area { border-top: 1px solid var(--border); }
 #product-area:empty { display: none; border: none; }
 
+.product-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 20px;
+  border: none;
+  background: var(--brand-light);
+  color: var(--brand-dark);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.product-toggle:hover { background: #e0d8f0; }
+.product-toggle .arrow {
+  display: inline-block;
+  transition: transform 0.2s;
+  font-size: 10px;
+}
+.product-toggle.collapsed .arrow { transform: rotate(180deg); }
+
 /* Product cards */
 .product-cards {
   display: flex;
@@ -525,6 +549,22 @@ function renderProducts(products) {
     trackEvent("product_impression", { handle: p.handle, title: p.title });
   });
 
+  // Toggle bar
+  var toggle = document.createElement("button");
+  toggle.className = "product-toggle";
+  toggle.innerHTML = 'Products <span class="arrow">▼</span>';
+  toggle.onclick = function() {
+    var cards = productAreaEl.querySelector(".product-cards");
+    if (!cards) return;
+    var isHidden = cards.style.display === "none";
+    cards.style.display = isHidden ? "" : "none";
+    toggle.classList.toggle("collapsed", !isHidden);
+    toggle.innerHTML = isHidden
+      ? 'Products <span class="arrow">▼</span>'
+      : 'Products <span class="arrow">▼</span>';
+  };
+
+  productAreaEl.appendChild(toggle);
   productAreaEl.appendChild(container);
 }
 
