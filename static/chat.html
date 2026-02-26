@@ -72,8 +72,15 @@ body {
   color: var(--brand);
 }
 
-#messages {
+#chat-content {
+  position: relative;
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#messages {
+  height: 100%;
   overflow-y: auto;
   padding: 16px 20px;
   display: flex;
@@ -131,31 +138,40 @@ body {
   40% { transform: translateY(-6px); }
 }
 
-/* Product area — fixed zone between messages and input */
-#product-area { border-top: 1px solid rgba(149,128,214,0.15); }
-#product-area:empty { display: none; border: none; }
+/* Product area — frosted glass overlay at bottom of chat */
+#product-area {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  background: rgba(237, 233, 246, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(149,128,214,0.2);
+}
+#product-area:empty { display: none; }
 
 .product-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
-  padding: 5px 20px;
+  padding: 8px 20px;
   border: none;
-  background: rgba(149,128,214,0.06);
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 500;
+  background: none;
+  color: var(--brand-dark);
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.15s;
+  transition: color 0.15s;
 }
-.product-toggle:hover { background: rgba(149,128,214,0.12); }
+.product-toggle:hover { color: var(--brand); }
 .product-toggle .arrow {
   display: inline-block;
-  transition: transform 0.2s;
-  font-size: 10px;
+  transition: transform 0.25s;
 }
 .product-toggle.collapsed .arrow { transform: rotate(180deg); }
 
@@ -374,8 +390,10 @@ body {
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
     </button>
   </div>
-  <div id="messages"></div>
-  <div id="product-area"></div>
+  <div id="chat-content">
+    <div id="messages"></div>
+    <div id="product-area"></div>
+  </div>
   <div id="actions"></div>
   <div id="input-area">
     <input id="input" placeholder="Ask me anything..." maxlength="1000" />
@@ -550,18 +568,16 @@ function renderProducts(products) {
   });
 
   // Toggle bar
+  var chevron = '<span class="arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>';
   var toggle = document.createElement("button");
   toggle.className = "product-toggle";
-  toggle.innerHTML = 'Products <span class="arrow">▼</span>';
+  toggle.innerHTML = chevron + " Products";
   toggle.onclick = function() {
     var cards = productAreaEl.querySelector(".product-cards");
     if (!cards) return;
     var isHidden = cards.style.display === "none";
     cards.style.display = isHidden ? "" : "none";
     toggle.classList.toggle("collapsed", !isHidden);
-    toggle.innerHTML = isHidden
-      ? 'Products <span class="arrow">▼</span>'
-      : 'Products <span class="arrow">▼</span>';
   };
 
   productAreaEl.appendChild(toggle);
